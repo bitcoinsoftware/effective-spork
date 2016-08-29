@@ -139,7 +139,7 @@ class Photogrammetry:
         if self.fileNotEmpty(self.projectStatusObject.openMVGSfMOutputFile):
             self.run_MVG2MVE2(["-i", self.projectStatusObject.openMVGSfMOutputFile, "-o", self.projectStatusObject.reconstructionDir])
             if self.fileNotEmpty(self.projectStatusObject.mveMainFile):
-                if self.projectStatusObject.roi_scale != False:
+                if self.projectStatusObject.roi_scale:
                     roi = self.getROI(self.projectStatusObject.roi_scale)
                     roi_option_str = '--bounding-box=' + ','.join(map(str,roi)) # argument of the bounding box
                     print "ROI OPTION STR", roi_option_str
@@ -262,17 +262,19 @@ class Photogrammetry:
         """ Get rid of the reused photos"""
         old_listed_photos = self.getListedPhotoNames(self.projectStatusObject.imageListingFile)
         new_photos_list = list(set(new_reused_photos_list) - set(old_listed_photos))
-        """ Make an image listing from only the new photos just for feature computing """
-        incrementalOpenMVGListingUrl = self.getIncrementalOpenMVGImageListingUrl(new_photos_list)
-        """ Compute the features of the new photos """
-        self.run_computeFeatures(["-i", incrementalOpenMVGListingUrl, "-o", self.projectStatusObject.featuresDir, "-p", self.projectStatusObject.mode, "-m", "SIFT", "-f", "1"])
-        #""" Get a list of weak photo nodes before we make a list containing the new images"""
-        #weak_photo_names = self.getWeakNodes(new_reused_photos_list)
-        """ Than make a listing of all photos """
-        new_nodes_list = self.getExtendedOpenMVGImageListingUrl(self.projectStatusObject.imageListingFile, new_photos_list)
-        """ Next make a pairlist to match only the new photos to old photos
-                Returnes a list of (node_number, PhotoName) """
-        #incrementalOpenMVGPairListUrl = self.getIncrementalPairListUrl(matchingOption, weak_photo_names, selected_photo_names)
+        if len(new_photos_list) > 0:
+            """ Make an image listing from only the new photos just for feature computing """
+            incrementalOpenMVGListingUrl = self.getIncrementalOpenMVGImageListingUrl(new_photos_list)
+            """ Compute the features of the new photos """
+            self.run_computeFeatures(["-i", incrementalOpenMVGListingUrl, "-o", self.projectStatusObject.featuresDir, "-p", self.projectStatusObject.mode, "-m", "SIFT", "-f", "1"])
+            #""" Get a list of weak photo nodes before we make a list containing the new images"""
+            #weak_photo_names = self.getWeakNodes(new_reused_photos_list)
+            """ Than make a listing of all photos """
+            new_nodes_list = self.getExtendedOpenMVGImageListingUrl(self.projectStatusObject.imageListingFile, new_photos_list)
+        else:
+            new_nodes_list =[]
+
+        """ Next make a pairlist to match only the new photos to old photos or reinforce old photos. Returnes a list of (node_number, PhotoName) """
         incrementalOpenMVGPairListUrl = self.getIncrementalPairListUrl(matchingOption, selected_photo_names)
         """ Now match new photos to old ones. We don't match new photos between each other"""
         self.run_computeMatches(["-i", self.projectStatusObject.imageListingFile, "-g", "e", "-f", "1", "-o", self.projectStatusObject.incrMatchesDir, "--pair_list", incrementalOpenMVGPairListUrl])
@@ -289,6 +291,10 @@ class Photogrammetry:
         """ Save the project state """
         self.log(["Saving project state"])
         json_status = self.projectStatusObject.saveCurrentStatus()
+        #TODO check the len
+        #self.log[len(new_nodes_list)]
+        if len(new_nodes_list) == 1:
+            json_status["connections"] = len(self.getNodeMatches(new_nodes_list[0][0]))#, self.projectStatusObject.geoMatchesFile))
         """ Return the status """
         return json_status
 
@@ -336,19 +342,24 @@ class Photogrammetry:
             self.log(["Generates a file with a list of newest nodes and corresponding matches"])
             newest_nodes_and_matches = self.getMatchesList(self.getNewestNodes(self.projectStatusObject.newPhotosMatchingNumber))
             return self.getIncrementalPairList(newest_nodes_and_matches, new_nodes)
+        elif matchingMode == "reinforceStructure":
+            self.log(["Generate a file with a list of nodes and corresponding matches that dont occure in the geometric matches"])
+            return self.getReinforcingPairList(good_nodes+new_nodes)
 
-    def getMatchesList(self, selected_nodes):
+    def getMatchesList(self, nodes):
         """ Returnes a list of nodes that are matching the nodes from the provided list """
         self.log(["Returnes a list of nodes that are matching the nodes from the provided list"])
         matches_list = []
-        for node in selected_nodes:
+        for node in nodes:
             matches_list += self.getNodeMatches(node)
-        return list(set(matches_list + selected_nodes))
+        return list(set(matches_list + nodes))
 
-    def getNodeMatches(self, node):
+    def getNodeMatches(self, node, graph = None):
         """ Returnes a list of matches corresponding to the provided node"""
         self.log(["Returnes a list of matches corresponding to the provided node"])
-        matching_lines = self.getMatchLines(self.projectStatusObject.geoMatchesFile)
+        if graph == None:
+            graph = self.projectStatusObject.geoMatchesFile
+        matching_lines = self.getMatchLines(graph)
         node_symbol = self.projectStatusObject.nodePrefix + str(node)
         node_matches = []
         for match_line in matching_lines:
@@ -419,17 +430,35 @@ class Photogrammetry:
         self.log(["Generate a pair list file that matches all new images to all good old images"])
         output_str = ''
         with open(self.projectStatusObject.incrPairListFile, 'w') as f:
-            print good_nodes
-            print new_nodes
             for good_node in good_nodes:
                 for new_node in new_nodes:
                     if new_node != good_node:
                         output_str += str(good_node) + ' ' + str(new_node)+'\n'
-            print output_str
-            #exit()
             f.write(output_str)
         self.log(["Pair matching: ", output_str])
         return self.projectStatusObject.incrPairListFile
+
+    def getReinforcingPairList(self, nodes):
+        self.log(['Generate a pair list that reinforces the structure'])
+        output_str = ''
+        with open(self.projectStatusObject.incrPairListFile, 'w') as f:
+            output_str = self.getReinforcingPairListString(nodes)
+            f.write(output_str)
+        self.log(["Pair matching: ", output_str])
+        return self.projectStatusObject.incrPairListFile
+
+    def getReinforcingPairListString(self, nodes):
+        output_str =''
+        pair_list = []
+        for node in nodes:
+            node_matches = self.getMatchesList([node])
+            nodes_to_be_matched = list(set(nodes) - set(node_matches) - set([node]))
+            for to_match_node in nodes_to_be_matched:
+                pair = set([node, to_match_node])
+                if pair not in pair_list:
+                    pair_list.append(pair)
+                    output_str += str(node) + ' ' + str(to_match_node) + '\n'
+        return output_str
 
     def getReusedNodesList(self, reused_photos_list):
         self.log(["Get a list of nodes that ware reused (node_number, photo_name)"])
@@ -618,7 +647,7 @@ class Photogrammetry:
                 nodeNumbers.append(nodeNumber)
         return nodeNumbers
 
-    def getROI(self, scale=1):
+    def getROI(self, scale):
         roiValue = [None,None, None,None, None,None] #minX, maxX, minY, maxY, minZ, maxZ
         viewFolderList = os.listdir(self.projectStatusObject.mveViewsDir)
         for folderName in viewFolderList:
@@ -658,12 +687,12 @@ class Photogrammetry:
 
             roiSize   = [abs(roiValue[3]-roiValue[0]),       abs(roiValue[4]-roiValue[1]),    abs(roiValue[5]-roiValue[2])]
 
-            scaledROI = [roiMiddle[0] - scale* roiSize[0]/2,
-                         roiMiddle[1] - scale* roiSize[1]/2,
-                         roiMiddle[2] - scale* roiSize[2]/2,
-                         roiMiddle[0] + scale * roiSize[0]/2,
-                         roiMiddle[1] + scale * roiSize[1]/2,
-                         roiMiddle[2] + scale * roiSize[2]/2]
+            scaledROI = [roiMiddle[0] - round(scale* roiSize[0]/2, 4),
+                         roiMiddle[1] - round(scale* roiSize[1]/2, 4),
+                         roiMiddle[2] - round(scale* roiSize[2]/2, 4),
+                         roiMiddle[0] + round(scale* roiSize[0]/2, 4),
+                         roiMiddle[1] + round(scale* roiSize[1]/2, 4),
+                         roiMiddle[2] + round(scale* roiSize[2]/2, 4)]
 
 
             return  scaledROI

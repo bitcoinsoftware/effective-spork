@@ -1,9 +1,8 @@
 import os
 import json
-import support_functions
 
 class ProjectStatus:
-    newPhotosMatchingNumber             = 3 #just for option Appedn_to_newest_photos_and_their_matches
+    newPhotosMatchingNumber             = 6 #just for option Appedn_to_newest_photos_and_their_matches
     nodePrefix                          = "n"
     projectStatusFileName               = "projectStatus.json"
     featuresFolderName                  = "features"

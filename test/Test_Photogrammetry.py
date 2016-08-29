@@ -38,12 +38,14 @@ class Test_Photogrammetry(unittest.TestCase):
         self.assertEquals([1,3,4], nodes)
 
     def test_getROI(self):
-        roi =  self.pg.getROI()
-        #theoreticalAnswer = [-0.380894,-0.00640959,      -0.0435886,0.345403,      -0.366705,-0.169645 ]
-        theoreticalAnswer = [-0.380894,-0.0435886,-0.366705,     -0.00640959,0.345403,-0.169645]
+        roi =  self.pg.getROI(1)
+        theoreticalAnswer = [-0.384887, -0.0354083, -0.376969, -0.00582268, 0.353022, -0.16858]
         self.assertEqual(roi, theoreticalAnswer)
 
-        roi = self.pg.getROI(scale = 2)
-        print roi
+        #roi = self.pg.getROI(scale = 2)
         #theoreticalAnswer = [-0.5681362050000001, 0.18083261499999997, -0.23808439999999997, 0.5398988, -0.465235, -0.07111499999999998]
         #self.assertEqual(roi, theoreticalAnswer)
+
+    def test_getReinforcingPairListString(self):
+        pair_list = self.pg.getReinforcingPairListString([0,1,2,3,4,5])
+        self.assertEqual('0 2\n', pair_list)

@@ -16,6 +16,7 @@ class UserInterface:
         self.logStr = ''
         self.ui = ui
         self.mainWindow = MainWindow
+        self.aps = None #automatic photo source
 
     def refresh(self):
         if self.projectStatus is not None:
@@ -56,7 +57,7 @@ class UserInterface:
             self.projectStatus.editStatus()
 
     def runAutomaticPhotoSource(self):
-        if self.projectStatus is not None and self.projectStatus.successful and self.projectStatus.automatic_photo_source != None:
+        if self.projectStatus is not None and self.projectStatus.successful and self.projectStatus.automatic_photo_source != None and self.aps == None:
             self.log(["Running Automatic Photo Source"])
             self.aps = AutomaticPhotoSourceThread(self.projectStatus, ui = self.ui, mainWindow = self.mainWindow)
             self.aps.start()
@@ -75,7 +76,10 @@ class UserInterface:
             if initializationType =='fromAutomaticPhotoSource':
                 if self.projectStatus.automatic_photo_source != None:
                     self.log(["Downloading photos, this may take a minute."])
-                    support_functions.downloadPhotos(webSourceUrl = self.projectStatus.automatic_photo_source, workspaceUrl = self.projectStatus.inputDir)
+                    if support_functions.downloadPhotos(webSourceUrl = self.projectStatus.automatic_photo_source, workspaceUrl = self.projectStatus.inputDir) !=0:
+                        QtGui.QMessageBox.question(self.mainWindow, 'Warning!',
+                                                   "Unable to download photos from the automatic photo source. Please check the settings.",
+                                                   QtGui.QMessageBox.Ok)
                 else:
                     QtGui.QMessageBox.question(self.mainWindow, 'Warning!', "Please set the automatic photo source in project preferences", QtGui.QMessageBox.Ok)
 
@@ -93,6 +97,7 @@ class UserInterface:
             self.ui.label_3.setText("New images :")
         else:
             QtGui.QMessageBox.question(self.mainWindow, 'Warning!', "Please initialize the project first", QtGui.QMessageBox.Ok)
+
 
     def computeSparseReconstruction(self):
         if self.projectStatus is not None and self.projectStatus.successful:
@@ -200,6 +205,7 @@ class UserInterface:
                 self.appendNewPhotos("toNewestPhotos")
             elif txt == "connectionError":
                 QtGui.QMessageBox.question(self.mainWindow, 'Warning!',"Unable to communicate with the photo source. Please chceck if the provided path is proper and check the connection.", QtGui.QMessageBox.Ok)
+                self.aps = None
 
         self.ui.plainTextEdit.verticalScrollBar().setValue(self.ui.plainTextEdit.verticalScrollBar().maximum())
 
@@ -265,8 +271,10 @@ if __name__ == "__main__":
     QtCore.QObject.connect(ui.actionTo_selected_photos_and_their_matches,   QtCore.SIGNAL('triggered()'), partial(userInt.appendNewPhotos, "toSelectedPhotos"))
     QtCore.QObject.connect(ui.actionTo_newest_photos_and_their_matches,     QtCore.SIGNAL('triggered()'), partial(userInt.appendNewPhotos, "toNewestPhotos"))
 
-    QtCore.QObject.connect(ui.actionCompute_sparse_reconstruction,  QtCore.SIGNAL('triggered()'), userInt.computeSparseReconstruction)
-    QtCore.QObject.connect(ui.actionCompute_Region_Of_Interest,     QtCore.SIGNAL('triggered()'), userInt.computeRegionOfInterest)
+    QtCore.QObject.connect(ui.actionCompute_sparse_reconstruction,          QtCore.SIGNAL('triggered()'), userInt.computeSparseReconstruction)
+    QtCore.QObject.connect(ui.actionCompute_Region_Of_Interest,             QtCore.SIGNAL('triggered()'), userInt.computeRegionOfInterest)
+    QtCore.QObject.connect(ui.actionReinforce_matching_graph_structure,     QtCore.SIGNAL('triggered()'), partial(userInt.appendNewPhotos, "reinforceStructure" ))
+
     QtCore.QObject.connect(ui.actionUltra_Precision,                QtCore.SIGNAL('triggered()'), partial(userInt.computeFinalReconstruction, 1))
     QtCore.QObject.connect(ui.actionVery_High,                      QtCore.SIGNAL('triggered()'), partial(userInt.computeFinalReconstruction, 2))
     QtCore.QObject.connect(ui.actionHigh_Precision,                 QtCore.SIGNAL('triggered()'), partial(userInt.computeFinalReconstruction, 3))

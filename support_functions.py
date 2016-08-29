@@ -62,9 +62,16 @@ def downloadSinglePhoto(photoName, webSourceUrl, workspaceUrl):
 
 def downloadPhotos(webSourceUrl, workspaceUrl):
     wpc = downloadWebPageContent(webSourceUrl)
-    photosList = findNewPhotos(wpc)
-    for photoName in photosList:
-        downloadSinglePhoto(photoName, webSourceUrl, workspaceUrl)
+    if wpc != None:
+        photosList = findNewPhotos(wpc)
+        if len(photosList) > 0:
+            for photoName in photosList:
+                downloadSinglePhoto(photoName, webSourceUrl, workspaceUrl)
+            return 0
+        else:
+            return -1
+    else:
+        return -1
 
 def downloadWebPageContent(url):
     import urllib2
@@ -84,6 +91,8 @@ def findNewPhotos(pageContent, oldPhotos = []):
     for photoLine in photoLines:
         photoLine = photoLine.strip().replace("wlansd.push(", "").replace(");", "")
         photoLineDict = ast.literal_eval(photoLine)
-        photoNames.append(photoLineDict['fname'])
+        if len(photoLineDict['fname'].split('.') ) ==2:
+            if photoLineDict['fname'].split('.')[1] in ['jpg', 'JPG', 'jpeg', 'JPEG', 'PNG','png']:
+                photoNames.append(photoLineDict['fname'])
     newPhotoNames = list(set(photoNames) - set(oldPhotos))
     return newPhotoNames
