@@ -7,20 +7,21 @@ import threading
 import re
 import random
 import ast
-import itertools
 
+
+import SfMDataGenerator
 import support_functions
 
 #TODO match photos one by one
 #TODO interface with SD CARD
 class Photogrammetry:
     def __init__(self, projecStatusObject, log = None, required_matches = 8):
-        script_path = os.path.abspath(os.path.dirname(sys.argv[0]))
-        self.OPENMVG_SFM_BIN = os.path.join(script_path, "../openMVG/openMVG_Build/Linux-x86_64-RELEASE") # Indicate the openMVG binary directory
-        self.CAMERA_SENSOR_WIDTH_DIRECTORY = script_path # Indicate the openMVG camera sensor width directory
-        self.MVE_BIN = os.path.join(script_path,"../mve/apps")
-        self.TEXRECON_BIN = os.path.join(script_path,"../mvs-texturing/build/apps/texrecon/texrecon")
-        self.CAMERA_DB_FILE = os.path.join(self.CAMERA_SENSOR_WIDTH_DIRECTORY, "sensor_width_camera_database.txt")
+        #TODO move these variables to projectStatus
+        #script_path = os.path.abspath(os.path.dirname(__name__))
+        self.OPENMVG_SFM_BIN = os.path.join(projecStatusObject.scriptDir, "../openMVG/openMVG_Build/Linux-x86_64-RELEASE") # Indicate the openMVG binary directory
+        self.MVE_BIN = os.path.join(projecStatusObject.scriptDir,"../mve/apps")
+        self.TEXRECON_BIN = os.path.join(projecStatusObject.scriptDir,"../mvs-texturing/build/apps/texrecon/texrecon")
+        self.CAMERA_DB_FILE = os.path.join(projecStatusObject.scriptDir, "sensor_width_camera_database.txt")
         self.maxRam=0
         self.code=0
         if log == None:
@@ -169,7 +170,9 @@ class Photogrammetry:
     def getIncrementalInitialization(self):
         self.log(["Initializing...", "Working directory:", self.projectStatusObject.outputDir, "Please be patient", "You can view the progress in the terminal..."])
         """ List the images, compute the features and matches """
-        self.run_imageListing(self.projectStatusObject.inputDir, self.projectStatusObject.featuresDir)
+        #self.run_imageListing(self.projectStatusObject.inputDir, self.projectStatusObject.featuresDir)
+        sfmg = SfMDataGenerator.SfMDataGenerator(self.projectStatusObject, self.log)
+        sfmg.getSfMData()
         photo_names = self.getListedPhotoNames(self.projectStatusObject.imageListingFile)
         self.run_computeFeatures(["-i", self.projectStatusObject.imageListingFile, "-o", self.projectStatusObject.featuresDir, "-p", self.projectStatusObject.mode, "-m", "SIFT", "-f", "1"])
         self.run_computeMatches(["-i", self.projectStatusObject.imageListingFile, "-g", "e", "-f", "1", "-o", self.projectStatusObject.matchesDir])
@@ -254,9 +257,6 @@ class Photogrammetry:
         return name_list
 
     def getIncrementalAppend(self, new_reused_photos_list, selected_photo_names=[], matchingOption = "toAllNodes"):
-        ##TODO fuck out  smart matching
-        ##TODO weak nodes = nodes below 3 matches
-        #TODO repair reusing wrong photos
         """ Compute new photos and merge them to the final project"""
         self.log(["Compute new photos and merge them to the final project"])
         """ Get rid of the reused photos"""
@@ -264,9 +264,9 @@ class Photogrammetry:
         new_photos_list = list(set(new_reused_photos_list) - set(old_listed_photos))
         if len(new_photos_list) > 0:
             """ Make an image listing from only the new photos just for feature computing """
-            incrementalOpenMVGListingUrl = self.getIncrementalOpenMVGImageListingUrl(new_photos_list)
+            self.getIncrementalOpenMVGImageListing(new_photos_list)
             """ Compute the features of the new photos """
-            self.run_computeFeatures(["-i", incrementalOpenMVGListingUrl, "-o", self.projectStatusObject.featuresDir, "-p", self.projectStatusObject.mode, "-m", "SIFT", "-f", "1"])
+            self.run_computeFeatures(["-i", self.projectStatusObject.incrImageListingFile, "-o", self.projectStatusObject.featuresDir, "-p", self.projectStatusObject.mode, "-m", "SIFT", "-f", "1"])
             #""" Get a list of weak photo nodes before we make a list containing the new images"""
             #weak_photo_names = self.getWeakNodes(new_reused_photos_list)
             """ Than make a listing of all photos """
@@ -292,13 +292,11 @@ class Photogrammetry:
         self.log(["Saving project state"])
         json_status = self.projectStatusObject.saveCurrentStatus()
         #TODO check the len
-        #self.log[len(new_nodes_list)]
         if len(new_nodes_list) == 1:
             json_status["connections"] = len(self.getNodeMatches(new_nodes_list[0][0]))#, self.projectStatusObject.geoMatchesFile))
         """ Return the status """
         return json_status
 
-    #def getIncrementalPairListUrl(self, matchingMode, weak_photo_names = [], selected_photo_names = []):
     def getIncrementalPairListUrl(self, matchingMode, selected_photo_names = []):
         self.log(["Generates a file with a list of nodes to be matched "])
         good_nodes, wrong_nodes, new_nodes, weak_nodes, selected_nodes = [], [], [], [], []
@@ -340,8 +338,10 @@ class Photogrammetry:
             return self.getIncrementalPairList(selected_nodes_and_matches, new_nodes)
         elif matchingMode == "toNewestPhotos":
             self.log(["Generates a file with a list of newest nodes and corresponding matches"])
-            newest_nodes_and_matches = self.getMatchesList(self.getNewestNodes(self.projectStatusObject.newPhotosMatchingNumber))
-            return self.getIncrementalPairList(newest_nodes_and_matches, new_nodes)
+            newest_nodes = self.getNewestNodes(self.projectStatusObject.newPhotosMatchingNumber)
+            newest_nodes_and_matches = self.getMatchesList(newest_nodes)
+            selected_nodes_and_matches = list(set(self.getMatchesList(selected_nodes) + selected_nodes))
+            return self.getIncrementalPairList(newest_nodes_and_matches + selected_nodes_and_matches, new_nodes)
         elif matchingMode == "reinforceStructure":
             self.log(["Generate a file with a list of nodes and corresponding matches that dont occure in the geometric matches"])
             return self.getReinforcingPairList(good_nodes+new_nodes)
@@ -419,7 +419,7 @@ class Photogrammetry:
         """ Choose a random subset of photos from the provided list """
         self.log(["Choose a random subset of photos from the provided list"])
         max_sample_size = len(elem_list)
-        indexes = random.sample(range(max_sample_size), min(self.required_matches, max_sample_size))
+        indexes = random.sample(range(max_sample_size), min(self.projectStatusObject.newPhotosMatchingNumber, max_sample_size))
         output_list = []
         for index in indexes:
             output_list.append(elem_list[index])
@@ -546,7 +546,8 @@ class Photogrammetry:
                 json.dump(image_listing, fw, sort_keys=True, indent = 4)
         return new_node_list
 
-    def getIncrementalOpenMVGImageListingUrl(self, new_photos_list):
+
+    def getIncrementalOpenMVGImageListing(self, new_photos_list):
         self.log(["Make an image listing from a new photos list. This listing is only used for computing features of new photos"])
         img_listing = {"sfm_data_version" : "0.2", "root_path" : self.projectStatusObject.inputDir, "extrinsics": [], "structure": [], "control_points": []}
         self.log(["Get intrinsic field from the base image listing file"])
@@ -567,7 +568,10 @@ class Photogrammetry:
                 self.log(["Save the views "])
                 with open(self.projectStatusObject.incrImageListingFile, 'w') as f:
                     json.dump(img_listing, f, sort_keys=True, indent = 4)
-                return self.projectStatusObject.incrImageListingFile
+                #return self.projectStatusObject.incrImageListingFile
+                return img_listing
+
+
 
     def getListedPhotoNames(self, listing_file_url):
         self.log(["Get listed photo names"])
@@ -621,6 +625,7 @@ class Photogrammetry:
                 view_json = image_listing_json['views'][index]
         return view_json
 
+    #unused
     def generateNamedMatchesGraph(self):
         """ Reads a file with node matches and outputs a url to a file with the node names changed into photo names """
         with open(self.projectStatusObject.geoMatchesFile) as gmf:

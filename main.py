@@ -17,6 +17,7 @@ class UserInterface:
         self.ui = ui
         self.mainWindow = MainWindow
         self.aps = None #automatic photo source
+        self.displayIncrementedGraphProcess = -1
 
     def refresh(self):
         if self.projectStatus is not None:
@@ -57,10 +58,13 @@ class UserInterface:
             self.projectStatus.editStatus()
 
     def runAutomaticPhotoSource(self):
-        if self.projectStatus is not None and self.projectStatus.successful and self.projectStatus.automatic_photo_source != None and self.aps == None:
-            self.log(["Running Automatic Photo Source"])
-            self.aps = AutomaticPhotoSourceThread(self.projectStatus, ui = self.ui, mainWindow = self.mainWindow)
-            self.aps.start()
+        if self.aps != None:
+            self.log(["Automatic photo source already running"])
+        if self.projectStatus is not None and self.projectStatus.successful and self.projectStatus.automatic_photo_source != None:
+            if self.aps == None:
+                self.log(["Running Automatic Photo Source"])
+                self.aps = AutomaticPhotoSourceThread(self.projectStatus, ui = self.ui, mainWindow = self.mainWindow)
+                self.aps.start()
         else:
             QtGui.QMessageBox.question(self.mainWindow, 'Warning!', "Please initialize the project first and set the automatic photo source in project preferences", QtGui.QMessageBox.Ok)
 
@@ -76,14 +80,14 @@ class UserInterface:
             if initializationType =='fromAutomaticPhotoSource':
                 if self.projectStatus.automatic_photo_source != None:
                     self.log(["Downloading photos, this may take a minute."])
-                    if support_functions.downloadPhotos(webSourceUrl = self.projectStatus.automatic_photo_source, workspaceUrl = self.projectStatus.inputDir) !=0:
+                    if support_functions.downloadPhotos(webSourceUrl = self.projectStatus.automatic_photo_source, workspaceUrl = self.projectStatus.inputDir) !=0: #if could not download
                         QtGui.QMessageBox.question(self.mainWindow, 'Warning!',
                                                    "Unable to download photos from the automatic photo source. Please check the settings.",
                                                    QtGui.QMessageBox.Ok)
                 else:
                     QtGui.QMessageBox.question(self.mainWindow, 'Warning!', "Please set the automatic photo source in project preferences", QtGui.QMessageBox.Ok)
 
-            self.pg = PhotogrammetryThread('initialize', self.projectStatus, self.ui)
+            self.pg = PhotogrammetryThread('initialize', self.projectStatus, self.ui, arg = initializationType)
             self.pg.start()
             self.ui.label_3.setText("New images :")
         else:
@@ -206,7 +210,14 @@ class UserInterface:
             elif txt == "connectionError":
                 QtGui.QMessageBox.question(self.mainWindow, 'Warning!',"Unable to communicate with the photo source. Please chceck if the provided path is proper and check the connection.", QtGui.QMessageBox.Ok)
                 self.aps = None
-
+            elif txt == 'fromAutomaticPhotoSource':
+                self.runAutomaticPhotoSource()
+            elif txt == 'displayIncrementedGraph':
+                try:
+                    self.displayIncrementedGraphProcess.terminate()
+                except:
+                    pass
+                self.displayIncrementedGraphProcess = subprocess.Popen(["xdot", self.projectStatus.incrGeoMatchesFile])
         self.ui.plainTextEdit.verticalScrollBar().setValue(self.ui.plainTextEdit.verticalScrollBar().maximum())
 
     def viewMatchingGraph(self):

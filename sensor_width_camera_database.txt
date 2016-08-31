@@ -886,6 +886,7 @@ Fujifilm FinePix J10;5.75
 Fujifilm FinePix J50;5.75
 Fujifilm FinePix Z200fd;6.16
 Fujifilm A850;5.75
+A850;5.75
 Fujifilm FinePix Z20fd;6.16
 Fujifilm FinePix J22;6.16
 Fujifilm FinePix J210;6.16
@@ -1594,6 +1595,7 @@ Nikon Coolpix L310;6.16
 Nikon D600;35.9
 Nikon Coolpix L810;6.16
 Nikon D3200;23.2
+Nikon D3300;23.5
 Nikon D800E;35.9
 Nikon Coolpix P510;6.16
 Nikon Coolpix P310;6.16

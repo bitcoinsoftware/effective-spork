@@ -5,6 +5,9 @@ import subprocess
 import os
 
 class PhotogrammetryThread(QtCore.QThread):
+
+    incr_geo_matches_process = True
+
     def __init__(self, command, projectStatus, mainWindow, arg=None):
         QtCore.QThread.__init__(self)
         self.command = command
@@ -12,8 +15,6 @@ class PhotogrammetryThread(QtCore.QThread):
         self.projectStatus = projectStatus
         self.incPG = Photogrammetry.Photogrammetry(self.projectStatus, self.log)
         self.mainWindow = mainWindow
-
-        self.incr_geo_matches_process = True
 
     def log(self, txtList):
         self.mainWindow.plainTextEdit.emit(QtCore.SIGNAL("log(QStringList)"), txtList)
@@ -30,7 +31,9 @@ class PhotogrammetryThread(QtCore.QThread):
             p = subprocess.Popen(["xdot", self.projectStatus.geoMatchesFile])
             if jsonStatus:
                 p = subprocess.Popen(["meshlab", self.projectStatus.openMVGSfMInitialStructureFile])
-
+                #TODO run automatic photo source
+                if self.arg == 'fromAutomaticPhotoSource':
+                    self.log(['fromAutomaticPhotoSource'])
         elif self.command == 'append':
             self.incPG.projectStatusObject  = self.projectStatus
             old_photos                      = self.projectStatus.getOldPhotos()
@@ -42,9 +45,14 @@ class PhotogrammetryThread(QtCore.QThread):
                 self.voiceReport(jsonStatus=None, new_photos=new_photos)
                 self.log(["Doing incremental append with option:", self.arg])
                 jsonStatus = self.incPG.getIncrementalAppend(new_photos, selected_photos_list, matchingOption = self.arg)
-                if self.incr_geo_matches_process != None: # when the process workes it is equal to None, when it doesnt work it has a minus value
+                #if self.incr_geo_matches_process != None: # when the process workes it is equal to None, when it doesnt work it has a minus value
                     #open a new window just when there is no window already
-                    self.incr_geo_matches_process = p = subprocess.Popen(["xdot", self.projectStatus.incrGeoMatchesFile])
+                #try:
+                #    self.incr_geo_matches_process.terminate()
+                #except:
+                #    pass
+                #p = self.incr_geo_matches_process = subprocess.Popen(["xdot", self.projectStatus.incrGeoMatchesFile])
+                self.log(['displayIncrementedGraph'])
                 self.voiceReport(jsonStatus, new_photos) #inform via audio if  a single photo was matched
             else:
                 self.log(["There are no new photos, please add some."])
@@ -84,7 +92,6 @@ class PhotogrammetryThread(QtCore.QThread):
             p.wait()
         self.log(["enableMenu"])
 
-    #TODO
     def voiceReport(self, jsonStatus, new_photos):
         if len(new_photos) == 1:
             if jsonStatus == None:
@@ -96,7 +103,7 @@ class PhotogrammetryThread(QtCore.QThread):
             elif "connections" in jsonStatus.keys():
                 if jsonStatus["connections"] > 0:
                     if jsonStatus["connections"] < 4:
-                        text = "There ware only "+ str(jsonStatus["connections"]) +" please make more similar photos"
+                        text = "Only "+ str(jsonStatus["connections"]) +" connection, please make more similar photos"
                         v = subprocess.Popen(["espeak", "\" "+ text +" \""])
                     else:
                         text =  str(jsonStatus["connections"]) + " connections found"
@@ -107,6 +114,6 @@ class PhotogrammetryThread(QtCore.QThread):
             else:
                 text = "Reused photo was matched."
                 v = subprocess.Popen(["espeak", "\" "+ text +"\""])
-                self.log([text])
+            self.log([text])
             v.wait()
 

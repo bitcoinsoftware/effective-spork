@@ -1449,6 +1449,13 @@
      <addaction name="actionInitialize_with_local_stored_photos"/>
      <addaction name="actionInitialize_with_remote_stored_photos"/>
     </widget>
+    <widget class="QMenu" name="menuAutomatic_photo_source">
+     <property name="title">
+      <string>Automatic photo source</string>
+     </property>
+     <addaction name="actionStart"/>
+     <addaction name="actionStop"/>
+    </widget>
     <addaction name="actionRefresh"/>
     <addaction name="menuInitialize_project"/>
     <addaction name="menuAppend_new_photos"/>
@@ -1466,7 +1473,7 @@
     <addaction name="actionDisplay_all_matched_photos"/>
     <addaction name="separator"/>
     <addaction name="actionEdit_project_preferences"/>
-    <addaction name="actionRun_automatic_photo_source"/>
+    <addaction name="menuAutomatic_photo_source"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -1623,11 +1630,6 @@
     <string>Edit project preferences</string>
    </property>
   </action>
-  <action name="actionRun_automatic_photo_source">
-   <property name="text">
-    <string>Run automatic photo source</string>
-   </property>
-  </action>
   <action name="actionInitialize_with_local_stored_photos">
    <property name="text">
     <string>Initialize with local photos</string>
@@ -1646,6 +1648,16 @@
   <action name="actionCompute_Region_Of_Interest">
    <property name="text">
     <string>Compute Region Of Interest</string>
+   </property>
+  </action>
+  <action name="actionStart">
+   <property name="text">
+    <string>Start</string>
+   </property>
+  </action>
+  <action name="actionStop">
+   <property name="text">
+    <string>Stop</string>
    </property>
   </action>
  </widget>

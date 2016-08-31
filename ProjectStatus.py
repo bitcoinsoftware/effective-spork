@@ -1,5 +1,7 @@
 import os
 import json
+import sys
+import inspect
 
 class ProjectStatus:
     newPhotosMatchingNumber             = 6 #just for option Appedn_to_newest_photos_and_their_matches
@@ -9,6 +11,7 @@ class ProjectStatus:
     matchesFolderName                   = "matches"
     incrMatchesFolderName               = "incremental_matches"
     reconstructionFolderName            = "reconstruction_global"
+    openMVGSensorWidthFileName          = "sensor_width_camera_database.txt"
     openMVGListingFileName              = "sfm_data.json"
     openMVGPairListFileName             = "pair_list"
     openMVGMatchesFileName              = "matches.e.txt"
@@ -58,6 +61,11 @@ class ProjectStatus:
             self.outputDir          = os.path.dirname(inputPath)
             self.inputDir           = os.path.join(self.outputDir, '..')
             self.loadStatus()
+
+        #self.scriptDir                          = os.path.abspath(os.path.dirname(__name__))
+        #self.scriptDir                          = os.path.abspath(os.path.dirname(sys.argv[0]))
+        self.scriptDir                          = os.path.dirname(inspect.getfile(inspect.currentframe()))
+        self.openMVGSensorWidthFile             = os.path.join(self.scriptDir,          self.openMVGSensorWidthFileName)
 
         self.featuresDir                        = os.path.join(self.outputDir,          self.featuresFolderName)
         self.matchesDir                         = os.path.join(self.outputDir,          self.matchesFolderName)
