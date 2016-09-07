@@ -8,6 +8,8 @@ import re
 import random
 import ast
 
+#import time
+
 
 import SfMDataGenerator
 import support_functions
@@ -30,6 +32,7 @@ class Photogrammetry:
             self.log = log
         self.projectStatusObject = projecStatusObject
         self.required_matches = required_matches
+        self.sfmg = SfMDataGenerator.SfMDataGenerator(self.projectStatusObject, self.log)
 
     class myThread (threading.Thread):
         def __init__(self, pid, pg):
@@ -171,10 +174,9 @@ class Photogrammetry:
         self.log(["Initializing...", "Working directory:", self.projectStatusObject.outputDir, "Please be patient", "You can view the progress in the terminal..."])
         """ List the images, compute the features and matches """
         #self.run_imageListing(self.projectStatusObject.inputDir, self.projectStatusObject.featuresDir)
-        sfmg = SfMDataGenerator.SfMDataGenerator(self.projectStatusObject, self.log)
-        sfmg.getSfMData()
+        self.sfmg.getSfMData()
         photo_names = self.getListedPhotoNames(self.projectStatusObject.imageListingFile)
-        self.run_computeFeatures(["-i", self.projectStatusObject.imageListingFile, "-o", self.projectStatusObject.featuresDir, "-p", self.projectStatusObject.mode, "-m", "SIFT", "-f", "1"])
+        self.run_computeFeatures(["-i", self.projectStatusObject.imageListingFile, "-o", self.projectStatusObject.featuresDir, "-p", self.projectStatusObject.mode, "-m", "SIFT", "-f", "1", "--numThreads", "3"])
         self.run_computeMatches(["-i", self.projectStatusObject.imageListingFile, "-g", "e", "-f", "1", "-o", self.projectStatusObject.matchesDir])
         """ Check if the matching process was successful """
         status = self.fileNotEmpty(os.path.join(self.projectStatusObject.matchesDir, 'matches.e.txt'))
@@ -262,20 +264,28 @@ class Photogrammetry:
         """ Get rid of the reused photos"""
         old_listed_photos = self.getListedPhotoNames(self.projectStatusObject.imageListingFile)
         new_photos_list = list(set(new_reused_photos_list) - set(old_listed_photos))
+        print "DUPA UDPA", len(new_photos_list)
         if len(new_photos_list) > 0:
             """ Make an image listing from only the new photos just for feature computing """
-            self.getIncrementalOpenMVGImageListing(new_photos_list)
+            #self.getIncrementalOpenMVGImageListing(new_photos_list)
+            self.sfmg.getIncrementalSfMData(new_photos_list, self.projectStatusObject.imageListingFile, self.projectStatusObject.inputDir, self.projectStatusObject.incrImageListingFile, newPhotosOnly = True)
             """ Compute the features of the new photos """
-            self.run_computeFeatures(["-i", self.projectStatusObject.incrImageListingFile, "-o", self.projectStatusObject.featuresDir, "-p", self.projectStatusObject.mode, "-m", "SIFT", "-f", "1"])
+            self.run_computeFeatures(["-i", self.projectStatusObject.incrImageListingFile, "-o", self.projectStatusObject.featuresDir, "-p", self.projectStatusObject.mode, "-m", "SIFT", "-f", "1", "--numThreads", "3"])
             #""" Get a list of weak photo nodes before we make a list containing the new images"""
             #weak_photo_names = self.getWeakNodes(new_reused_photos_list)
             """ Than make a listing of all photos """
-            new_nodes_list = self.getExtendedOpenMVGImageListingUrl(self.projectStatusObject.imageListingFile, new_photos_list)
+            #new_nodes_list = self.getExtendedOpenMVGImageListingUrl(self.projectStatusObject.imageListingFile, new_photos_list)
+            #newPhotoList, oldSfMDataUrl, inputPhotoDir, outputSfMDataUrl
+            new_nodes_list = self.sfmg.getIncrementalSfMData(new_photos_list, self.projectStatusObject.imageListingFile, self.projectStatusObject.inputDir, self.projectStatusObject.imageListingFile)
+            #print "NEW NODES LIST", new_nodes_list
+            #exit()
+
         else:
             new_nodes_list =[]
-
+        #time.sleep(5)
         """ Next make a pairlist to match only the new photos to old photos or reinforce old photos. Returnes a list of (node_number, PhotoName) """
         incrementalOpenMVGPairListUrl = self.getIncrementalPairListUrl(matchingOption, selected_photo_names)
+        #time.sleep(5)
         """ Now match new photos to old ones. We don't match new photos between each other"""
         self.run_computeMatches(["-i", self.projectStatusObject.imageListingFile, "-g", "e", "-f", "1", "-o", self.projectStatusObject.incrMatchesDir, "--pair_list", incrementalOpenMVGPairListUrl])
         """ If the result is non 0 bytes big, merge it with the old result """
@@ -318,9 +328,11 @@ class Photogrammetry:
                     wrong_nodes.append(view["key"])
                 else:
                     new_nodes.append(view["key"])
-        print "MATCHING MODE", matchingMode
-        print "NEW NODES", new_nodes
-        #exit()
+        #print "MATCHING MODE", matchingMode
+        #print "NEW NODES", new_nodes
+        #print "WRONG NODES", wrong_nodes
+        #print "GOOD NODES",  good_nodes
+        #time.sleep(5)
         if matchingMode == "toAllNodes":
             return self.getIncrementalPairList(good_nodes + new_nodes, new_nodes)
         #elif matchingMode == "toWeakNodes":
@@ -335,6 +347,8 @@ class Photogrammetry:
             """ Generate a file with a list of selected nodes and corresponding matches """
             self.log(["Generates a file with a list of selected nodes and corresponding matches"])
             selected_nodes_and_matches = list(set(self.getMatchesList(selected_nodes) + selected_nodes))
+            print "SELECTED NODES", selected_nodes
+            print "SELECTED NODES AND MATCHES", selected_nodes_and_matches
             return self.getIncrementalPairList(selected_nodes_and_matches, new_nodes)
         elif matchingMode == "toNewestPhotos":
             self.log(["Generates a file with a list of newest nodes and corresponding matches"])
@@ -356,7 +370,7 @@ class Photogrammetry:
 
     def getNodeMatches(self, node, graph = None):
         """ Returnes a list of matches corresponding to the provided node"""
-        self.log(["Returnes a list of matches corresponding to the provided node"])
+        self.log(["Returnes a list of matches corresponding to the %s node" % str(node)])
         if graph == None:
             graph = self.projectStatusObject.geoMatchesFile
         matching_lines = self.getMatchLines(graph)
@@ -367,7 +381,7 @@ class Photogrammetry:
             if match_line.find(node_symbol+' ') != -1:
                 matching_number = match_line.replace(node_symbol, '').replace('--','').replace('n','')
                 matching_number = matching_number.rstrip().lstrip()
-                self.log(["Extaracted:", matching_number])
+                #self.log(["Extaracted:", matching_number])
                 matching_number = ast.literal_eval(matching_number)
                 node_matches.append(matching_number)
         return node_matches
@@ -380,8 +394,8 @@ class Photogrammetry:
             """ Check if ther's at least one match between the new nodes and old nodes """
             old_node_matched = False
             self.log(["Check if there is at least one match between the new nodes and old nodes"])
-            self.log(match_lines)
-            self.log(old_node_symbols)
+            #self.log(match_lines)
+            #self.log(old_node_symbols)
             for match_line in match_lines:
                 for old_node_symbol in old_node_symbols:
                     if match_line.find(old_node_symbol + ' ') != -1: #a match with the old node found at the begining of the line
@@ -435,7 +449,7 @@ class Photogrammetry:
                     if new_node != good_node:
                         output_str += str(good_node) + ' ' + str(new_node)+'\n'
             f.write(output_str)
-        self.log(["Pair matching: ", output_str])
+        #self.log(["Pair matching: ", output_str])
         return self.projectStatusObject.incrPairListFile
 
     def getReinforcingPairList(self, nodes):
@@ -444,7 +458,7 @@ class Photogrammetry:
         with open(self.projectStatusObject.incrPairListFile, 'w') as f:
             output_str = self.getReinforcingPairListString(nodes)
             f.write(output_str)
-        self.log(["Pair matching: ", output_str])
+        #self.log(["Pair matching: ", output_str])
         return self.projectStatusObject.incrPairListFile
 
     def getReinforcingPairListString(self, nodes):

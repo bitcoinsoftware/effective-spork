@@ -3,6 +3,7 @@ import support_functions
 import Photogrammetry
 import subprocess
 import os
+import shutil
 
 class PhotogrammetryThread(QtCore.QThread):
 
@@ -40,6 +41,7 @@ class PhotogrammetryThread(QtCore.QThread):
             all_photos                      = support_functions.getImagesList(self.projectStatus.inputDir)
             new_photos                      = support_functions.getNewPhotosList(old_photos, all_photos)
             selected_photos_list            = support_functions.getSelectedPhotoList(self.mainWindow)
+            print "SELECTED PHOTO LIST", selected_photos_list
             self.log(["Selected photo list"] + selected_photos_list)
             if len(new_photos) > 0 or self.arg == 'reinforceStructure':
                 self.voiceReport(jsonStatus=None, new_photos=new_photos)
@@ -87,10 +89,21 @@ class PhotogrammetryThread(QtCore.QThread):
             if os.path.exists(self.incPG.projectStatusObject.geoMatchesFile) :
                 #p = subprocess.Popen(["xdot", newGraphUrl])
                 p = subprocess.Popen(["xdot", self.incPG.projectStatusObject.geoMatchesFile])
+        elif self.command == "backup":
+            support_functions.copyTree(self.projectStatus.matchesDir, self.projectStatus.matchesBackupDir)
+            shutil.copy2(self.projectStatus.url, self.projectStatus.backupUrl)
+            shutil.copy2(self.projectStatus.imageListingFile, self.projectStatus.imageListingBackupFile)
+        elif self.command == 'recoverFromBackup':
+            lastAddedPhotos = self.projectStatus.getLastAddedPhotos()
+            self.projectStatus.wrong_photos = list(set(self.projectStatus.wrong_photos + lastAddedPhotos))
+            self.projectStatus.photos = list(set(self.projectStatus.photos) - set(lastAddedPhotos))
+            support_functions.copyTree(self.projectStatus.matchesBackupDir, self.projectStatus.matchesDir)
+            self.projectStatus.saveCurrentStatus()
         if p:
             self.log(["Waiting for subprocess termination"])
             p.wait()
         self.log(["enableMenu"])
+
 
     def voiceReport(self, jsonStatus, new_photos):
         if len(new_photos) == 1:

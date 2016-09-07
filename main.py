@@ -68,6 +68,13 @@ class UserInterface:
         else:
             QtGui.QMessageBox.question(self.mainWindow, 'Warning!', "Please initialize the project first and set the automatic photo source in project preferences", QtGui.QMessageBox.Ok)
 
+    def stopAutomaticPhotoSource(self):
+        if self.aps != None:
+            self.log(["Stop automatic photo source"])
+            self.aps.notKilled = False
+        else:
+            self.log(["Automoatic photo source not running"])
+
     def initializeProject(self, initializationType ='fromLocalPhotos'):
         if self.projectStatus is not None and self.projectStatus.successful:
             choice = QtGui.QMessageBox.question(self.mainWindow, 'Warning!', "Project is allready initialized, do you want to overwrite it?",
@@ -96,12 +103,19 @@ class UserInterface:
     def appendNewPhotos(self, matchingOption):
         if self.projectStatus is not None and self.projectStatus.successful:
             self.ui.menubar.setEnabled(False)
+            self.pg = PhotogrammetryThread('backup', self.projectStatus, self.ui)
+            self.pg.start()
+
             self.pg = PhotogrammetryThread('append', self.projectStatus, self.ui, arg = matchingOption)
             self.pg.start()
             self.ui.label_3.setText("New images :")
         else:
             QtGui.QMessageBox.question(self.mainWindow, 'Warning!', "Please initialize the project first", QtGui.QMessageBox.Ok)
 
+    def undoAppendNewPhotos(self):
+        if self.projectStatus is not None and self.projectStatus.successful:
+            self.pg = PhotogrammetryThread('recoverFromBackup', self.projectStatus, self.ui)
+            self.pg.start()
 
     def computeSparseReconstruction(self):
         if self.projectStatus is not None and self.projectStatus.successful:
@@ -115,8 +129,6 @@ class UserInterface:
                                        "Unable to compute the sparse reconstruction from the provided data. Please add more photos and initialize the project first",
                                        QtGui.QMessageBox.Ok)
 
-    def computeRegionOfInterest(self):
-        print "Not implemented yet"
 
     def computeFinalReconstruction(self, precision):
         if self.projectStatus is not None and (self.projectStatus.sparse_reconstruction or self.projectStatus.successful):
@@ -192,6 +204,7 @@ class UserInterface:
             self.ui.pushButton.setEnabled(True)
 
     def log(self, txtList):
+        #TODO errors
         for txt in txtList:
             self.ui.plainTextEdit.insertPlainText(str(txt) + '\n')
             print txt
@@ -281,9 +294,9 @@ if __name__ == "__main__":
     #QtCore.QObject.connect(ui.actionTo_smart_choosen_nodes,                 QtCore.SIGNAL('triggered()'), partial(userInt.appendNewPhotos, "toSmartChoosenNodes"))
     QtCore.QObject.connect(ui.actionTo_selected_photos_and_their_matches,   QtCore.SIGNAL('triggered()'), partial(userInt.appendNewPhotos, "toSelectedPhotos"))
     QtCore.QObject.connect(ui.actionTo_newest_photos_and_their_matches,     QtCore.SIGNAL('triggered()'), partial(userInt.appendNewPhotos, "toNewestPhotos"))
+    QtCore.QObject.connect(ui.actionUndo_append,                            QtCore.SIGNAL('triggered()'), userInt.undoAppendNewPhotos)
 
     QtCore.QObject.connect(ui.actionCompute_sparse_reconstruction,          QtCore.SIGNAL('triggered()'), userInt.computeSparseReconstruction)
-    QtCore.QObject.connect(ui.actionCompute_Region_Of_Interest,             QtCore.SIGNAL('triggered()'), userInt.computeRegionOfInterest)
     QtCore.QObject.connect(ui.actionReinforce_matching_graph_structure,     QtCore.SIGNAL('triggered()'), partial(userInt.appendNewPhotos, "reinforceStructure" ))
 
     QtCore.QObject.connect(ui.actionUltra_Precision,                QtCore.SIGNAL('triggered()'), partial(userInt.computeFinalReconstruction, 1))
@@ -301,7 +314,9 @@ if __name__ == "__main__":
     QtCore.QObject.connect(ui.actionDisplay_all_matched_photos,     QtCore.SIGNAL('triggered()'), userInt.displayAllGoodPhotos)
 
     QtCore.QObject.connect(ui.actionEdit_project_preferences,       QtCore.SIGNAL('triggered()'), userInt.editProjectFile)
-    QtCore.QObject.connect(ui.actionRun_automatic_photo_source,       QtCore.SIGNAL('triggered()'), userInt.runAutomaticPhotoSource)
+    QtCore.QObject.connect(ui.actionStart,       QtCore.SIGNAL('triggered()'), userInt.runAutomaticPhotoSource)
+    QtCore.QObject.connect(ui.actionStop,       QtCore.SIGNAL('triggered()'), userInt.stopAutomaticPhotoSource)
+
 
     QtCore.QObject.connect(ui.listWidget,                           QtCore.SIGNAL('doubleClicked(QModelIndex)'),    partial(userInt.displayPhoto, 'textWidget'))
     QtCore.QObject.connect(ui.listWidget_2,                         QtCore.SIGNAL('doubleClicked(QModelIndex)'),    partial(userInt.displayPhoto, 'photoWidget'))

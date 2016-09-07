@@ -7,12 +7,15 @@ class ProjectStatus:
     newPhotosMatchingNumber             = 6 #just for option Appedn_to_newest_photos_and_their_matches
     nodePrefix                          = "n"
     projectStatusFileName               = "projectStatus.json"
+    projectStatusBackupFileName         = "projectStatusBACKUP.json"
     featuresFolderName                  = "features"
     matchesFolderName                   = "matches"
+    matchesBackupFolderName             = "matchesBACKUP"
     incrMatchesFolderName               = "incremental_matches"
     reconstructionFolderName            = "reconstruction_global"
     openMVGSensorWidthFileName          = "sensor_width_camera_database.txt"
     openMVGListingFileName              = "sfm_data.json"
+    openMVGListingBackupFileName        = "sfm_dataBACKUP.json"
     openMVGPairListFileName             = "pair_list"
     openMVGMatchesFileName              = "matches.e.txt"
     openMVGGeoMatchesFileName           = "geometric_matches"
@@ -39,6 +42,7 @@ class ProjectStatus:
             if not os.path.exists(self.outputDir):
                 os.mkdir(self.outputDir)
             self.url                    = os.path.join(self.outputDir, self.projectStatusFileName)
+            self.backupUrl              = os.path.join(self.outputDir, self.projectStatusBackupFileName)
             self.successful             = False
             self.sparse_reconstruction  = False
             self.dense_reconstruction   = False
@@ -56,9 +60,10 @@ class ProjectStatus:
                     f, sort_keys = True, indent = 4)
 
         elif os.path.isfile(inputPath): #if we are loading an old project
-            print "LOADING NEW PROJECT"
+            print "LOADING PROJECT"
             self.url                = inputPath
             self.outputDir          = os.path.dirname(inputPath)
+            self.backupUrl = os.path.join(self.outputDir, self.projectStatusBackupFileName)
             self.inputDir           = os.path.join(self.outputDir, '..')
             self.loadStatus()
 
@@ -69,12 +74,14 @@ class ProjectStatus:
 
         self.featuresDir                        = os.path.join(self.outputDir,          self.featuresFolderName)
         self.matchesDir                         = os.path.join(self.outputDir,          self.matchesFolderName)
+        self.matchesBackupDir                   = os.path.join(self.outputDir,          self.matchesBackupFolderName)
         self.incrMatchesDir                     = os.path.join(self.outputDir,          self.incrMatchesFolderName)
         self.reconstructionDir                  = os.path.join(self.outputDir,          self.reconstructionFolderName)
         self.matchesFile                        = os.path.join(self.matchesDir,         self.openMVGMatchesFileName)
         self.geoMatchesFile                     = os.path.join(self.matchesDir,         self.openMVGGeoMatchesFileName)
         self.namedGeoMatchesFile                = os.path.join(self.matchesDir,         self.openMVGNamedGeoMatchesFileName)
         self.imageListingFile                   = os.path.join(self.featuresDir,        self.openMVGListingFileName)
+        self.imageListingBackupFile             = os.path.join(self.featuresDir,        self.openMVGListingBackupFileName)
         self.incrImageListingFile               = os.path.join(self.incrMatchesDir,     self.openMVGListingFileName)
         self.incrPairListFile                   = os.path.join(self.incrMatchesDir,     self.openMVGPairListFileName)
         self.incrMatchesFile                    = os.path.join(self.incrMatchesDir,     self.openMVGMatchesFileName)
@@ -119,17 +126,7 @@ class ProjectStatus:
             self.newPhotosMatchingNumber= jsonStatus['new_photos_matching_number']
             self.automatic_photo_source = jsonStatus['automatic_photo_source']
             self.roi_scale              = jsonStatus['roi_scale']
-    """
-    def save(self, jsonStatus):
-        with open(self.url,'w') as f:
-            json.dump(jsonStatus, f, sort_keys = True, indent = 4)
-        self.photos         = jsonStatus['photos']
-        self.wrong_photos   = jsonStatus['wrong_photos']
-        self.mode           = jsonStatus['mode']
-        self.successful     = jsonStatus['status']
-        self.sparse_reconstruction = jsonStatus['sparse_reconstruction']
-        self.dense_reconstruction = jsonStatus['dense_reconstruction']
-    """
+
     def saveCurrentStatus(self):
         jsonStatus = {'status': self.successful, 'mode':self.mode, 'photos':self.photos, 'wrong_photos':self.wrong_photos,
                       'sparse_reconstruction':self.sparse_reconstruction, 'dense_reconstruction':self.dense_reconstruction,
@@ -150,3 +147,12 @@ class ProjectStatus:
 
     def getOldPhotos(self):
         return list(self.photos+self.wrong_photos)
+
+    def getLastAddedPhotos(self):
+        backup_photos = []
+        with open(self.backupUrl) as f:
+            jsonBackupStatus = json.load(f)
+            backup_photos = jsonBackupStatus['photos']
+            backup_wrong_photos = jsonBackupStatus['wrong_photos']
+        last_added_photos = list(set(self.photos + self.wrong_photos) - set(backup_photos + backup_wrong_photos))
+        return last_added_photos

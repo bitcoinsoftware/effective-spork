@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'mainWindow.ui'
 #
-# Created: Mon Aug 22 12:29:29 2016
+# Created: Mon Sep  5 10:13:33 2016
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -498,6 +498,8 @@ class Ui_MainWindow(object):
         self.menuAppend_new_photos.setObjectName(_fromUtf8("menuAppend_new_photos"))
         self.menuInitialize_project = QtGui.QMenu(self.menuTools)
         self.menuInitialize_project.setObjectName(_fromUtf8("menuInitialize_project"))
+        self.menuAutomatic_photo_source = QtGui.QMenu(self.menuTools)
+        self.menuAutomatic_photo_source.setObjectName(_fromUtf8("menuAutomatic_photo_source"))
         self.menuHelp = QtGui.QMenu(self.menubar)
         self.menuHelp.setObjectName(_fromUtf8("menuHelp"))
         MainWindow.setMenuBar(self.menubar)
@@ -562,8 +564,6 @@ class Ui_MainWindow(object):
         self.actionSet_automatic_photo_source.setObjectName(_fromUtf8("actionSet_automatic_photo_source"))
         self.actionEdit_project_preferences = QtGui.QAction(MainWindow)
         self.actionEdit_project_preferences.setObjectName(_fromUtf8("actionEdit_project_preferences"))
-        self.actionRun_automatic_photo_source = QtGui.QAction(MainWindow)
-        self.actionRun_automatic_photo_source.setObjectName(_fromUtf8("actionRun_automatic_photo_source"))
         self.actionInitialize_with_local_stored_photos = QtGui.QAction(MainWindow)
         self.actionInitialize_with_local_stored_photos.setObjectName(_fromUtf8("actionInitialize_with_local_stored_photos"))
         self.actionInitialize_with_remote_stored_photos = QtGui.QAction(MainWindow)
@@ -572,6 +572,12 @@ class Ui_MainWindow(object):
         self.actionCompute_region_of_interest.setObjectName(_fromUtf8("actionCompute_region_of_interest"))
         self.actionCompute_Region_Of_Interest = QtGui.QAction(MainWindow)
         self.actionCompute_Region_Of_Interest.setObjectName(_fromUtf8("actionCompute_Region_Of_Interest"))
+        self.actionStart = QtGui.QAction(MainWindow)
+        self.actionStart.setObjectName(_fromUtf8("actionStart"))
+        self.actionStop = QtGui.QAction(MainWindow)
+        self.actionStop.setObjectName(_fromUtf8("actionStop"))
+        self.actionUndo_append = QtGui.QAction(MainWindow)
+        self.actionUndo_append.setObjectName(_fromUtf8("actionUndo_append"))
         self.menuNew_project.addAction(self.actionNormal_precision)
         self.menuNew_project.addAction(self.actionHigh_precision)
         self.menuNew_project.addAction(self.actionUltra_precision)
@@ -587,15 +593,17 @@ class Ui_MainWindow(object):
         self.menuAppend_new_photos.addAction(self.actionTo_smart_choosen_nodes)
         self.menuAppend_new_photos.addAction(self.actionTo_selected_photos_and_their_matches)
         self.menuAppend_new_photos.addAction(self.actionTo_newest_photos_and_their_matches)
+        self.menuAppend_new_photos.addAction(self.actionUndo_append)
         self.menuInitialize_project.addSeparator()
         self.menuInitialize_project.addAction(self.actionInitialize_with_local_stored_photos)
         self.menuInitialize_project.addAction(self.actionInitialize_with_remote_stored_photos)
+        self.menuAutomatic_photo_source.addAction(self.actionStart)
+        self.menuAutomatic_photo_source.addAction(self.actionStop)
         self.menuTools.addAction(self.actionRefresh)
         self.menuTools.addAction(self.menuInitialize_project.menuAction())
         self.menuTools.addAction(self.menuAppend_new_photos.menuAction())
         self.menuTools.addAction(self.actionReinforce_matching_graph_structure)
         self.menuTools.addAction(self.actionCompute_sparse_reconstruction)
-        self.menuTools.addAction(self.actionCompute_Region_Of_Interest)
         self.menuTools.addAction(self.menuCompute_final_reconstruction.menuAction())
         self.menuTools.addAction(self.actionTexture_final_reconstruction)
         self.menuTools.addSeparator()
@@ -607,7 +615,7 @@ class Ui_MainWindow(object):
         self.menuTools.addAction(self.actionDisplay_all_matched_photos)
         self.menuTools.addSeparator()
         self.menuTools.addAction(self.actionEdit_project_preferences)
-        self.menuTools.addAction(self.actionRun_automatic_photo_source)
+        self.menuTools.addAction(self.menuAutomatic_photo_source.menuAction())
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuTools.menuAction())
         self.menubar.addAction(self.menuHelp.menuAction())
@@ -628,6 +636,7 @@ class Ui_MainWindow(object):
         self.menuCompute_final_reconstruction.setTitle(_translate("MainWindow", "Compute final reconstruction", None))
         self.menuAppend_new_photos.setTitle(_translate("MainWindow", "Append new photos", None))
         self.menuInitialize_project.setTitle(_translate("MainWindow", "Initialize project", None))
+        self.menuAutomatic_photo_source.setTitle(_translate("MainWindow", "Automatic photo source", None))
         self.menuHelp.setTitle(_translate("MainWindow", "Help", None))
         self.actionLoad_project.setText(_translate("MainWindow", "Load project", None))
         self.actionCompute_sparse_reconstruction.setText(_translate("MainWindow", "Compute sparse reconstruction", None))
@@ -658,9 +667,11 @@ class Ui_MainWindow(object):
         self.actionTo_newest_photos_and_their_matches.setText(_translate("MainWindow", "To newest photos and their matches", None))
         self.actionSet_automatic_photo_source.setText(_translate("MainWindow", "Set automatic photo source", None))
         self.actionEdit_project_preferences.setText(_translate("MainWindow", "Edit project preferences", None))
-        self.actionRun_automatic_photo_source.setText(_translate("MainWindow", "Run automatic photo source", None))
         self.actionInitialize_with_local_stored_photos.setText(_translate("MainWindow", "Initialize with local photos", None))
         self.actionInitialize_with_remote_stored_photos.setText(_translate("MainWindow", "Initialize with photos from the automatic photo source", None))
         self.actionCompute_region_of_interest.setText(_translate("MainWindow", "Compute region of interest", None))
         self.actionCompute_Region_Of_Interest.setText(_translate("MainWindow", "Compute Region Of Interest", None))
+        self.actionStart.setText(_translate("MainWindow", "Start", None))
+        self.actionStop.setText(_translate("MainWindow", "Stop", None))
+        self.actionUndo_append.setText(_translate("MainWindow", "Undo append", None))
 

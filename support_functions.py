@@ -1,5 +1,6 @@
 import glob
 import os
+import shutil
 from PyQt4 import QtCore, QtGui
 
 def getImagesList(folderUrl):
@@ -48,6 +49,10 @@ def getSelectedPhotoList(mainWindow):
     selected_photo_list = []
     for item in selected_items:
         selected_photo_list.append(os.path.basename(str(item.toolTip())))
+
+    selected_items = mainWindow.listWidget.selectedItems()
+    for item in selected_items:
+        selected_photo_list.append(str(item.text()))
     return selected_photo_list
 
 def writeToStdout(textArray):
@@ -96,3 +101,14 @@ def findNewPhotos(pageContent, oldPhotos = []):
                 photoNames.append(photoLineDict['fname'])
     newPhotoNames = list(set(photoNames) - set(oldPhotos))
     return newPhotoNames
+
+def copyTree(src, dst, symlinks=False, ignore=None):
+    if not os.path.exists(dst):
+        os.mkdir(dst)
+    for item in os.listdir(src):
+        s = os.path.join(src, item)
+        d = os.path.join(dst, item)
+        if os.path.isdir(s):
+            shutil.copytree(s, d, symlinks, ignore)
+        else:
+            shutil.copy2(s, d)

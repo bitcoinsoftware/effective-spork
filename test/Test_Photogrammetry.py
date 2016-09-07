@@ -49,6 +49,3 @@ class Test_Photogrammetry(unittest.TestCase):
     def test_getReinforcingPairListString(self):
         pair_list = self.pg.getReinforcingPairListString([0,1,2,3,4,5])
         self.assertEqual('0 2\n', pair_list)
-
-    def test_getIncrementalOpenMVGImageListing(self):
-        newPhotoList = ['test1.JPG', 'test2.JPG']

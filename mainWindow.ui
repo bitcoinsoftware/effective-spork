@@ -1440,6 +1440,7 @@
      <addaction name="actionTo_smart_choosen_nodes"/>
      <addaction name="actionTo_selected_photos_and_their_matches"/>
      <addaction name="actionTo_newest_photos_and_their_matches"/>
+     <addaction name="actionUndo_append"/>
     </widget>
     <widget class="QMenu" name="menuInitialize_project">
      <property name="title">
@@ -1461,7 +1462,6 @@
     <addaction name="menuAppend_new_photos"/>
     <addaction name="actionReinforce_matching_graph_structure"/>
     <addaction name="actionCompute_sparse_reconstruction"/>
-    <addaction name="actionCompute_Region_Of_Interest"/>
     <addaction name="menuCompute_final_reconstruction"/>
     <addaction name="actionTexture_final_reconstruction"/>
     <addaction name="separator"/>
@@ -1658,6 +1658,11 @@
   <action name="actionStop">
    <property name="text">
     <string>Stop</string>
+   </property>
+  </action>
+  <action name="actionUndo_append">
+   <property name="text">
+    <string>Undo append</string>
    </property>
   </action>
  </widget>

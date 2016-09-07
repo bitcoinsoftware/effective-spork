@@ -1,5 +1,6 @@
 import support_functions
 import json
+import yaml
 import os
 import re
 import ast
@@ -9,6 +10,7 @@ from PIL import Image
 from PIL.ExifTags import TAGS
 
 class SfMDataGenerator:
+    startId = 2147483649
     def __init__(self, projectStatus, log = None):
         self.projectStatus = projectStatus
         self.log = log
@@ -22,7 +24,9 @@ class SfMDataGenerator:
                 tag = TAGS.get(k)
                 if tag in exifTags:
                     if type(v) == type(u'test'):
-                        v = v.rstrip().rstrip('\x00')
+                        v = str(v).rstrip().rstrip('\x00')
+                    elif type(v) == type((1,2)):
+                        v = list(v)
                     exifDict[tag] = v
             if set(exifDict.keys()) == set(exifTags):
                 return exifDict
@@ -40,7 +44,6 @@ class SfMDataGenerator:
         imageList       = support_functions.getImagesList(self.projectStatus.inputDir)
         photosNumber    = len(imageList)
         key = 0
-        startId = 2147483649
 
         for imageName in imageList:
             exifDict = self.getExifDict(os.path.join(self.projectStatus.inputDir, imageName))
@@ -57,12 +60,12 @@ class SfMDataGenerator:
                     intrinsic_key = len(optics)
                     optics.append(exifDict)
                     """ Append a new intrinsic """
-                    intrData = self.getIntrinsic(exifDict, photosNumber, key = len(intrinsics), startId =startId )
+                    intrData = self.getIntrinsic(exifDict, photosNumber, key = len(intrinsics) )
                     if intrData == None:
                         return
                     intrinsics.append(intrData)
             """ Append a new view """
-            views.append(self.getView(imageName, exifDict, key = key, intrinsicKey = intrinsic_key, id = startId + key))
+            views.append(self.getView(imageName, exifDict, key = key, intrinsicKey = intrinsic_key))
             key += 1
 
         sfmData["views"]            = views
@@ -71,59 +74,63 @@ class SfMDataGenerator:
         sfmData["structure"]        = []
         sfmData["control_points"]   = []
         sfmData["optics"]           = optics
+
         with open(self.projectStatus.imageListingFile, 'w') as f:
             f.write(json.dumps(sfmData, indent=4))
         return sfmData
 
-    def getIntrinsic(self, exifDict, photosNumber, key, startId):
+
+    def getIntrinsic(self, exifDict, photosNumber, key):
         #focal = std::max ( width, height ) * exifReader->getFocal() / ccdw;
-        ccdWidth  = self.getSensorWidth(exifDict["Make"], exifDict["Model"])
-        if ccdWidth:
-            #TODO verify that focal is a tuple and there is no 0 division
-            focalMM = exifDict["FocalLength"][0]/float(exifDict["FocalLength"][1])
-            focal = max(exifDict["ExifImageWidth"], exifDict["ExifImageHeight"]) * focalMM / ccdWidth
-            if key == 0:
-                polymorphic_id = startId
-            else:
-                polymorphic_id = 1
-            outDict = OrderedDict(
-                {
-                       'key':key,
-                       'value':
-                           {
-                            "polymorphic_id"    : polymorphic_id,
-                            "polymorphic_name"  : "pinhole_radial_k3",
-                            "ptr_wrapper"       :
-                                {
-                                        "id": photosNumber + key + startId,
-                                        "data": {
-                                            "width": exifDict["ExifImageWidth"],
-                                            "height": exifDict["ExifImageHeight"],
-                                            "focal_length": focal,
-                                            "principal_point":
-                                                    [
-                                                    exifDict["ExifImageWidth"]/2,
-                                                    exifDict["ExifImageHeight"]/2
-                                                    ],
-                                                    "disto_k3": [
-                                                            0,
-                                                            0,
-                                                            0 ]
-                                                }
+        if exifDict:
+            ccdWidth  = self.getSensorWidth(exifDict["Make"], exifDict["Model"])
+            if ccdWidth:
+                #TODO verify that focal is a tuple and there is no 0 division
+                focalMM = exifDict["FocalLength"][0]/float(exifDict["FocalLength"][1])
+                focal = max(exifDict["ExifImageWidth"], exifDict["ExifImageHeight"]) * focalMM / ccdWidth
+                if key == 0:
+                    polymorphic_id = self.startId
+                else:
+                    polymorphic_id = 1
+                outDict = OrderedDict(
+                    {
+                           'key':key,
+                           'value':
+                               {
+                                "polymorphic_id"    : polymorphic_id,
+                                "polymorphic_name"  : "pinhole_radial_k3",
+                                "ptr_wrapper"       :
+                                    {
+                                            "id": photosNumber + key + self.startId,
+                                            "data": {
+                                                "width": exifDict["ExifImageWidth"],
+                                                "height": exifDict["ExifImageHeight"],
+                                                "focal_length": focal,
+                                                "principal_point":
+                                                        [
+                                                        exifDict["ExifImageWidth"]/2,
+                                                        exifDict["ExifImageHeight"]/2
+                                                        ],
+                                                        "disto_k3": [
+                                                                0,
+                                                                0,
+                                                                0 ]
+                                                    }
+                                    }
                                 }
-                            }
-                })
-            return outDict
+                    })
+                return outDict
+            else:
+                self.log(["Error:False CCD Width, please check the database"])
         return
 
-
-    def getView(self, filename, exifDict, key, intrinsicKey, id):
+    def getView(self, filename, exifDict, key, intrinsicKey):
         outDict = OrderedDict(
         {
             "key": key,
             "value": {
                 "ptr_wrapper":{
-                    "id": id,
+                    "id": self.startId + key,
                     "data": {
                         "local_path": "/",
                         "filename": filename,
@@ -185,13 +192,68 @@ class SfMDataGenerator:
         return None
 
     #TODO
-    def generateIncrementalSfMData(self, oldSfMDataFileUrl, newPhotoList):
-        with open(oldSfMDataFileUrl) as f:
-            oldSfMData      = json.load(f)
-            folderPath      = oldSfMData["root_path"]
-            oldViewList     = oldSfMData["views"]
-            oldIntrinsics   = oldSfMData["intrinsics"]
-            oldOptics       = oldSfMData["optics"] #[{"CAMERA MODEL":focal}, {"CAMERA MODEL1":focal1}]
+    def updateIntrinsics(self, intrinsics, photosNumber, new_intrinsic):
+        for oldIntr in intrinsics:
+            oldKey = oldIntr['key']
+            oldIntr['value']['ptr_wrapper']['id'] = photosNumber + oldKey + self.startId
+        if new_intrinsic:
+            intrinsics.append(new_intrinsic)
+        return intrinsics
 
-        #return incrementedSfMData
-        return None
+    def getIncrementalSfMData(self, newPhotoList, oldSfMDataUrl, inputPhotoDir, outputSfMDataUrl = None, newPhotosOnly = False):
+        sfmData = None
+        nodes = []
+
+        with open(oldSfMDataUrl) as f:
+            # sfmData      = json.load(f)
+            sfmData = yaml.safe_load(f)
+
+            if newPhotosOnly == True:
+                views = []
+                intrinsics = []
+                optics = []
+                photosNumber = len(newPhotoList)
+            else:
+                #folderPath      = sfmData["root_path"]
+
+                views           = sfmData["views"]
+                intrinsics      = sfmData["intrinsics"]
+                optics          = sfmData["optics"]
+                #print "TYPE: ", optics
+
+                photosNumber    = len(newPhotoList) + len(views)
+
+            for imageName in newPhotoList:
+                #exifDict = self.getExifDict(os.path.join(self.projectStatus.inputDir, imageName))
+                newPhotoPath = os.path.join(inputPhotoDir, imageName)
+                exifDict = self.getExifDict(newPhotoPath)
+
+                if exifDict in optics:
+                    """ The photo was made with an allready registered camera """
+                    intrinsic_key = optics.index(exifDict)
+                    newIntrinsic  = None
+
+                else:
+                    """ The photo was made with a new camera or the params of the foto changed, generate a new intrinsic """
+                    intrinsic_key = len(optics)
+                    optics.append(exifDict)
+                    """ Generate a new intrinsic """
+                    newIntrinsic = self.getIntrinsic(exifDict, photosNumber, key = intrinsic_key)
+                intrinsics = self.updateIntrinsics(intrinsics, photosNumber, new_intrinsic = newIntrinsic)
+                """ Append a new view """
+                key = len(views)
+                views.append(self.getView(imageName, exifDict, key = key, intrinsicKey=intrinsic_key))
+                nodes.append((key, imageName))
+
+        #extrinsic       = oldSfMData["extrinsic"]
+        #structure       = oldSfMData["structure"]
+        #control_points  = oldSfMData["control_points"]
+        sfmData["views"]        = views
+        sfmData["intrinsics"]   = intrinsics
+        sfmData["optics"]       = optics
+
+        #with open(self.projectStatus.imageListingFile, 'w') as f:
+        if outputSfMDataUrl:
+            with open(outputSfMDataUrl, 'w') as f:
+                f.write(json.dumps(sfmData, indent=4))
+        return nodes
