@@ -15,16 +15,19 @@ class AutomaticPhotoSourceThread(QtCore.QThread):
         self.mainWindow = mainWindow
         self.ui = ui
         self.oldPhotos = []
+        print "initializing"
         pc = support_functions.downloadWebPageContent(projectStatusObject.automatic_photo_source)
         if pc != None:
+            print "pc != None"
             self.oldPhotos = support_functions.findNewPhotos(pc, self.oldPhotos)
-        self.notKilled = False
+        self.killed = False
 
     def log(self, txtList):
         self.ui.plainTextEdit.emit(QtCore.SIGNAL("log(QStringList)"), txtList)
 
     def run(self):
-        while self.mainWindow.isVisible() and self.notKilled == True:
+        while self.mainWindow.isVisible() and self.killed == False:
+            print "."
             pc = support_functions.downloadWebPageContent(self.projectStatusObject.automatic_photo_source)
             if pc != None:
                 newPhotos = support_functions.findNewPhotos(pc, self.oldPhotos)

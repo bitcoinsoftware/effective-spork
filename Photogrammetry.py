@@ -128,18 +128,61 @@ class Photogrammetry:
     """Generate the sparse model from the data"""
     def getSparseReconstruction(self):
         self.log(["Generate the sparse model from the data"])
-        if self.fileNotEmpty(self.projectStatusObject.matchesFile):
+        if support_functions.fileNotEmpty(self.projectStatusObject.matchesFile):
             self.run_globalSfM(["-i", self.projectStatusObject.imageListingFile, "-o", self.projectStatusObject.reconstructionDir, "-m", self.projectStatusObject.matchesDir])
-            if self.fileNotEmpty(self.projectStatusObject.openMVGSfMOutputFile):
-                self.run_DataColor(["-i", self.projectStatusObject.openMVGSfMOutputFile, "-o", self.projectStatusObject.openMVGSfMColorizedOutputFile])
-                colorized_ply_generated = self.fileNotEmpty(self.projectStatusObject.openMVGSfMColorizedOutputFile)
+            if support_functions.fileNotEmpty(self.projectStatusObject.openMVGSfMOutputFile) or support_functions.fileNotEmpty(self.projectStatusObject.openMVGSfMJSONOutputFile):
+                if support_functions.fileNotEmpty(self.projectStatusObject.openMVGSfMOutputFile):
+                    sfmFileUrl = self.projectStatusObject.openMVGSfMOutputFile
+                else:
+                    sfmFileUrl = self.projectStatusObject.openMVGSfMJSONOutputFile
+                self.run_DataColor(["-i", sfmFileUrl, "-o", self.projectStatusObject.openMVGSfMColorizedOutputFile])
+                colorized_ply_generated = support_functions.fileNotEmpty(self.projectStatusObject.openMVGSfMColorizedOutputFile)
                 if colorized_ply_generated:
                     self.projectStatusObject.sparse_reconstruction = True
                 self.projectStatusObject.saveCurrentStatus()
         return self.projectStatusObject.sparse_reconstruction
 
-    """Generate the dense model from data """
+    """Generate the dense point cloud from data """
     def getDenseReconstruction(self, scale):
+        self.log(["Generate the dense point cloud from data"])
+        if support_functions.fileNotEmpty(self.projectStatusObject.openMVGSfMOutputFile):
+            sfmFileUrl = self.projectStatusObject.openMVGSfMOutputFile
+        else:
+            sfmFileUrl = self.projectStatusObject.openMVGSfMJSONOutputFile
+
+        if support_functions.fileNotEmpty(sfmFileUrl):
+            self.run_MVG2MVE2(["-i", sfmFileUrl, "-o", self.projectStatusObject.reconstructionDir])
+            if support_functions.fileNotEmpty(self.projectStatusObject.mveMainFile):
+                if self.projectStatusObject.roi_scale:
+                    roi = self.getROI(self.projectStatusObject.roi_scale)
+                    roi_option_str = '--bounding-box=' + ','.join(map(str,roi)) # argument of the bounding box
+                    print "ROI OPTION STR", roi_option_str
+                else:
+                    roi_option_str = ''
+                if not self.run_dmrecon(["--force", "--scale="+str(scale), roi_option_str, self.projectStatusObject.mveDir]):
+                    self.run_scene2pset([self.projectStatusObject.mveDir, "-pcsn", "-F"+str(scale), self.projectStatusObject.mveScene2PsetOutputFile])
+                    if support_functions.fileNotEmpty(self.projectStatusObject.mveScene2PsetOutputFile):
+                        self.log(["Clean the point set"])
+                        self.run_meshclean(["--threshold=0.99", "--component-size=0", "--no-clean", self.projectStatusObject.mveScene2PsetOutputFile, self.projectStatusObject.mvePsetCleanOutputFile])
+                        return True
+
+    """Generate the mesh from point cloud """
+    def getMesh(self, scale):
+        if support_functions.fileNotEmpty(self.projectStatusObject.mvePsetCleanOutputFile):
+            self.run_fssrecon(["--interpolation=cubic", "--scale-factor=" + str(float(scale)), self.projectStatusObject.mvePsetCleanOutputFile, self.projectStatusObject.mveFSSReconOutputFile])
+            if support_functions.fileNotEmpty(self.projectStatusObject.mveFSSReconOutputFile):
+                self.run_meshclean(["--percentile=10", "--delete-scale", "--delete-conf", self.projectStatusObject.mveFSSReconOutputFile, self.projectStatusObject.mveMeshCleanOutputFile])
+                if support_functions.fileNotEmpty(self.projectStatusObject.mveMeshCleanOutputFile):
+                    self.projectStatusObject.dense_reconstruction = True
+                    self.projectStatusObject.saveCurrentStatus()
+                    return True
+
+    """Generate the final mesh model from data """
+    def getFinalReconstruction(self, scale):
+        if self.getDenseReconstruction(scale):
+            if self.getMesh(scale):
+                return True
+        """
         if self.fileNotEmpty(self.projectStatusObject.openMVGSfMOutputFile):
             self.run_MVG2MVE2(["-i", self.projectStatusObject.openMVGSfMOutputFile, "-o", self.projectStatusObject.reconstructionDir])
             if self.fileNotEmpty(self.projectStatusObject.mveMainFile):
@@ -149,7 +192,7 @@ class Photogrammetry:
                     print "ROI OPTION STR", roi_option_str
                 else:
                     roi_option_str = ''
-                if not self.run_dmrecon(["--scale="+str(scale), roi_option_str, self.projectStatusObject.mveDir]):
+                if not self.run_dmrecon(["--force","--scale="+str(scale), roi_option_str, self.projectStatusObject.mveDir]):
                     self.run_scene2pset([self.projectStatusObject.mveDir, "-pcsn", "-F"+str(scale), self.projectStatusObject.mveScene2PsetOutputFile])
                     if self.fileNotEmpty(self.projectStatusObject.mveScene2PsetOutputFile):
                         self.run_fssrecon(["--interpolation=cubic", "--scale-factor="+str(float(scale)), self.projectStatusObject.mveScene2PsetOutputFile, self.projectStatusObject.mveFSSReconOutputFile])
@@ -159,12 +202,13 @@ class Photogrammetry:
                                 self.projectStatusObject.dense_reconstruction = True
                                 self.projectStatusObject.saveCurrentStatus()
                                 return True
+        """
 
     """ Texture the output mesh"""
     def getTexturedReconstruction(self):
-        if self.fileNotEmpty(self.projectStatusObject.mveMeshCleanOutputFile):
-            self.run_texrecon([self.projectStatusObject.mveDir + "::undistorted", self.projectStatusObject.mveMeshCleanOutputFile, self.projectStatusObject.mveTextureOutputFileNoExtension])
-            if self.fileNotEmpty(self.projectStatusObject.mveTextureOutputFile):
+        if support_functions.fileNotEmpty(self.projectStatusObject.mveMeshCleanOutputFile):
+            self.run_texrecon(["","--no_intermediate_results","--keep_unseen_faces",self.projectStatusObject.mveDir + "::undistorted", self.projectStatusObject.mveMeshCleanOutputFile, self.projectStatusObject.mveTextureOutputFileNoExtension])
+            if support_functions.fileNotEmpty(self.projectStatusObject.mveTextureOutputFile):
                 self.projectStatusObject.textured_reconstruction = True
                 self.projectStatusObject.saveCurrentStatus()
                 return True
@@ -179,11 +223,11 @@ class Photogrammetry:
         self.run_computeFeatures(["-i", self.projectStatusObject.imageListingFile, "-o", self.projectStatusObject.featuresDir, "-p", self.projectStatusObject.mode, "-m", "SIFT", "-f", "1", "--numThreads", "3"])
         self.run_computeMatches(["-i", self.projectStatusObject.imageListingFile, "-g", "e", "-f", "1", "-o", self.projectStatusObject.matchesDir])
         """ Check if the matching process was successful """
-        status = self.fileNotEmpty(os.path.join(self.projectStatusObject.matchesDir, 'matches.e.txt'))
+        status = support_functions.fileNotEmpty(os.path.join(self.projectStatusObject.matchesDir, 'matches.e.txt'))
         if status:
             self.run_globalSfM(["-i", self.projectStatusObject.imageListingFile, "-o", self.projectStatusObject.reconstructionDir, "-m", self.projectStatusObject.matchesDir])
             self.log(["Photos matched succesfully"])
-        status = self.fileNotEmpty(self.projectStatusObject.openMVGSfMOutputFile)
+        status = support_functions.fileNotEmpty(self.projectStatusObject.openMVGSfMOutputFile) or support_functions.fileNotEmpty(self.projectStatusObject.openMVGSfMJSONOutputFile)
         """ Get the good and bad photo list """
         wrong_photo_names                       = self.getWrongPhotoNames(self.projectStatusObject.imageListingFile, self.projectStatusObject.geoMatchesFile)
         good_photo_names                        = list(set(photo_names) - set(wrong_photo_names)) #remove wrong photos from good photos
@@ -388,7 +432,7 @@ class Photogrammetry:
 
     def mergeMatchingResults2(self, old_listed_photos):
         self.log(["Merge the matching results 2"])
-        if self.fileNotEmpty(self.projectStatusObject.incrMatchesFile): #if there was at least one match
+        if support_functions.fileNotEmpty(self.projectStatusObject.incrMatchesFile): #if there was at least one match
             old_node_symbols = self.photoNames2NodeSymbols(old_listed_photos)
             match_lines      = self.getMatchLines(self.projectStatusObject.incrGeoMatchesFile)
             """ Check if ther's at least one match between the new nodes and old nodes """
@@ -503,7 +547,7 @@ class Photogrammetry:
 
     def mergeMatchingResults(self):
         self.log(["Merge the matching results"])
-        if self.fileNotEmpty(self.projectStatusObject.incrMatchesFile):
+        if support_functions.fileNotEmpty(self.projectStatusObject.incrMatchesFile):
             self.log(["Merge the matches.e.txt files"])
             with open(self.projectStatusObject.matchesFile, 'a') as fbw:   #open for appending the base matches file
                 with open(self.projectStatusObject.incrMatchesFile) as fi: #open for reading the incremented matches file
@@ -536,14 +580,6 @@ class Photogrammetry:
                     matchesSymbolList.append(line.rstrip())
         return matchesSymbolList
 
-    def fileNotEmpty(self, url):
-        self.log(["Check if file is not empty"])
-        if os.path.isfile(url):
-            fsize = os.stat(url)
-            if fsize.st_size > 0:
-                return True  # succesfully generated
-        return False
-
     def getExtendedOpenMVGImageListingUrl(self, image_listing_file_url, new_photos_list):
         self.log(["Make an extended image listing from the old listing and the new list of photos "])
         new_node_list = []
@@ -559,7 +595,6 @@ class Photogrammetry:
             with open(image_listing_file_url, 'w') as fw:
                 json.dump(image_listing, fw, sort_keys=True, indent = 4)
         return new_node_list
-
 
     def getIncrementalOpenMVGImageListing(self, new_photos_list):
         self.log(["Make an image listing from a new photos list. This listing is only used for computing features of new photos"])
@@ -584,8 +619,6 @@ class Photogrammetry:
                     json.dump(img_listing, f, sort_keys=True, indent = 4)
                 #return self.projectStatusObject.incrImageListingFile
                 return img_listing
-
-
 
     def getListedPhotoNames(self, listing_file_url):
         self.log(["Get listed photo names"])

@@ -2,6 +2,7 @@ import unittest
 import os
 from .. import Photogrammetry
 from .. import ProjectStatus
+from .. import support_functions
 
 class Test_Photogrammetry(unittest.TestCase):
     projectStatusUrl = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "meadow", "output", "projectStatus.json")
@@ -10,11 +11,11 @@ class Test_Photogrammetry(unittest.TestCase):
 
     def test_fileNotEmpty(self):
         testFileUrl = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "test_file")
-        self.assertEqual(self.pg.fileNotEmpty(testFileUrl), True)
+        self.assertEqual(support_functions.fileNotEmpty(testFileUrl), True)
         testFileUrl = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "empty_test_file")
-        self.assertEqual(self.pg.fileNotEmpty(testFileUrl), False)
+        self.assertEqual(support_functions.fileNotEmpty(testFileUrl), False)
         testFileUrl = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "FALSEURL")
-        self.assertEqual(self.pg.fileNotEmpty(testFileUrl), False)
+        self.assertEqual(support_functions.fileNotEmpty(testFileUrl), False)
 
     def test_getNodeSymbolsAndImgNamesFromSfMJson(self):
         sfmJsonUrl = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "meadow", "output", "features", "sfm_data.json")

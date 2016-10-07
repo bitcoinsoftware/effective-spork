@@ -71,7 +71,7 @@ class UserInterface:
     def stopAutomaticPhotoSource(self):
         if self.aps != None:
             self.log(["Stop automatic photo source"])
-            self.aps.notKilled = False
+            self.aps.killed = True
         else:
             self.log(["Automoatic photo source not running"])
 
@@ -88,9 +88,7 @@ class UserInterface:
                 if self.projectStatus.automatic_photo_source != None:
                     self.log(["Downloading photos, this may take a minute."])
                     if support_functions.downloadPhotos(webSourceUrl = self.projectStatus.automatic_photo_source, workspaceUrl = self.projectStatus.inputDir) !=0: #if could not download
-                        QtGui.QMessageBox.question(self.mainWindow, 'Warning!',
-                                                   "Unable to download photos from the automatic photo source. Please check the settings.",
-                                                   QtGui.QMessageBox.Ok)
+                        QtGui.QMessageBox.question(self.mainWindow, 'Warning!', "Unable to download photos from the automatic photo source. Please check the settings.",QtGui.QMessageBox.Ok)
                 else:
                     QtGui.QMessageBox.question(self.mainWindow, 'Warning!', "Please set the automatic photo source in project preferences", QtGui.QMessageBox.Ok)
 
@@ -130,14 +128,16 @@ class UserInterface:
                                        QtGui.QMessageBox.Ok)
 
 
-    def computeFinalReconstruction(self, precision):
+    def computeFinalReconstruction(self):
         if self.projectStatus is not None and (self.projectStatus.sparse_reconstruction or self.projectStatus.successful):
             choice = None
             if self.projectStatus.successful and not self.projectStatus.sparse_reconstruction: # if the project was successfully initialized but the sparse recon wasn't counted
                 choice = QtGui.QMessageBox.question(self.mainWindow, 'Warning!',
                                            "Found only the initial structure from motion output. If you want to update the project, please compute the sparse reconstruction first. "
                                            "Do you want to compute it anyway?", QtGui.QMessageBox.Ok, QtGui.QMessageBox.Cancel)
-            if self.projectStatus.sparse_reconstruction or choice == QtGui.QMessageBox.Ok:
+            precision, ok = QtGui.QInputDialog.getInt(self.mainWindow, QtCore.QString("Select precision"), QtCore.QString("Precision ( best = 1 , worst = 5):"), value=2,  max=5, min=1)
+
+            if (self.projectStatus.sparse_reconstruction or choice == QtGui.QMessageBox.Ok ) and ok:
                 self.log(["Compute final reconstruction"])
                 self.ui.menubar.setEnabled(False)
                 self.pg = PhotogrammetryThread('final', self.projectStatus, self.ui, precision)
@@ -145,6 +145,43 @@ class UserInterface:
                 self.ui.label_3.setText("New images :")
         else:
             QtGui.QMessageBox.question(self.mainWindow, 'Warning!', "Please compute the sparse reconstruction first", QtGui.QMessageBox.Ok)
+
+    def computePointCloudDensification(self):
+        if self.projectStatus is not None and (self.projectStatus.sparse_reconstruction or self.projectStatus.successful):
+            choice = None
+            if self.projectStatus.successful and not self.projectStatus.sparse_reconstruction: # if the project was successfully initialized but the sparse recon wasn't counted
+                choice = QtGui.QMessageBox.question(self.mainWindow, 'Warning!',
+                                           "Found only the initial structure from motion output. If you want to update the project, please compute the sparse reconstruction first. "
+                                           "Do you want to compute it anyway?", QtGui.QMessageBox.Ok, QtGui.QMessageBox.Cancel)
+            precision, ok = QtGui.QInputDialog.getInt(self.mainWindow, QtCore.QString("Select precision"), QtCore.QString("Precision ( best = 1 , worst = 5):"), value=2,  max=5, min=1)
+
+            if (self.projectStatus.sparse_reconstruction or choice == QtGui.QMessageBox.Ok ) and ok:
+                self.log(["Compute dense pointcloud"])
+                self.ui.menubar.setEnabled(False)
+                self.pg = PhotogrammetryThread('dense', self.projectStatus, self.ui, precision)
+                self.pg.start()
+                self.ui.label_3.setText("New images :")
+        else:
+            QtGui.QMessageBox.question(self.mainWindow, 'Warning!', "Please compute the sparse reconstruction first", QtGui.QMessageBox.Ok)
+
+
+    def computeMeshing(self):
+        if self.projectStatus is not None and (self.projectStatus.sparse_reconstruction or self.projectStatus.successful):
+            choice = None
+            if self.projectStatus.successful and not self.projectStatus.sparse_reconstruction: # if the project was successfully initialized but the sparse recon wasn't counted
+                choice = QtGui.QMessageBox.question(self.mainWindow, 'Warning!',
+                                           "Found only the initial structure from motion output. If you want to update the project, please compute the sparse reconstruction first. "
+                                           "Do you want to compute it anyway?", QtGui.QMessageBox.Ok, QtGui.QMessageBox.Cancel)
+            precision, ok = QtGui.QInputDialog.getInt(self.mainWindow, QtCore.QString("Select precision"), QtCore.QString("Precision ( best = 1 , worst = 5):"), value=2,  max=5, min=1)
+
+            if os.path.exists(self.projectStatus.mvePsetCleanOutputFile):
+                self.log(["Compute poisson mesh"])
+                self.ui.menubar.setEnabled(False)
+                self.pg = PhotogrammetryThread('mesh', self.projectStatus, self.ui, precision)
+                self.pg.start()
+                self.ui.label_3.setText("New images :")
+        else:
+            QtGui.QMessageBox.question(self.mainWindow, 'Warning!', "Please compute the dense pointcloud first", QtGui.QMessageBox.Ok)
 
     def computeTexturedReconstruction(self):
         if self.projectStatus is not None and self.projectStatus.dense_reconstruction:
@@ -299,11 +336,14 @@ if __name__ == "__main__":
     QtCore.QObject.connect(ui.actionCompute_sparse_reconstruction,          QtCore.SIGNAL('triggered()'), userInt.computeSparseReconstruction)
     QtCore.QObject.connect(ui.actionReinforce_matching_graph_structure,     QtCore.SIGNAL('triggered()'), partial(userInt.appendNewPhotos, "reinforceStructure" ))
 
-    QtCore.QObject.connect(ui.actionUltra_Precision,                QtCore.SIGNAL('triggered()'), partial(userInt.computeFinalReconstruction, 1))
-    QtCore.QObject.connect(ui.actionVery_High,                      QtCore.SIGNAL('triggered()'), partial(userInt.computeFinalReconstruction, 2))
-    QtCore.QObject.connect(ui.actionHigh_Precision,                 QtCore.SIGNAL('triggered()'), partial(userInt.computeFinalReconstruction, 3))
-    QtCore.QObject.connect(ui.actionMedium_Precision,               QtCore.SIGNAL('triggered()'), partial(userInt.computeFinalReconstruction, 4))
-    QtCore.QObject.connect(ui.actionLow_Precision,                  QtCore.SIGNAL('triggered()'), partial(userInt.computeFinalReconstruction, 5))
+    QtCore.QObject.connect(ui.actionPoint_cloud_densification_Meshing,      QtCore.SIGNAL('triggered()'), userInt.computeFinalReconstruction)
+    QtCore.QObject.connect(ui.actionPoint_cloud_densification,      QtCore.SIGNAL('triggered()'), userInt.computePointCloudDensification)
+    QtCore.QObject.connect(ui.actionMeshing,                        QtCore.SIGNAL('triggered()'), userInt.computeMeshing)
+    #QtCore.QObject.connect(ui.actionVery_High,                      QtCore.SIGNAL('triggered()'), partial(userInt.computeFinalReconstruction, 2))
+    #QtCore.QObject.connect(ui.actionHigh_Precision,                 QtCore.SIGNAL('triggered()'), partial(userInt.computeFinalReconstruction, 3))
+    #QtCore.QObject.connect(ui.actionMedium_Precision,               QtCore.SIGNAL('triggered()'), partial(userInt.computeFinalReconstruction, 4))
+    #QtCore.QObject.connect(ui.actionLow_Precision,                  QtCore.SIGNAL('triggered()'), partial(userInt.computeFinalReconstruction, 5))
+
     QtCore.QObject.connect(ui.actionTexture_final_reconstruction,   QtCore.SIGNAL('triggered()'), userInt.computeTexturedReconstruction)
 
     QtCore.QObject.connect(ui.actionFind_weak_nodes_2,              QtCore.SIGNAL('triggered()'), userInt.findWeakNodes)

@@ -1425,11 +1425,9 @@
      <property name="title">
       <string>Compute final reconstruction</string>
      </property>
-     <addaction name="actionUltra_Precision"/>
-     <addaction name="actionVery_High"/>
-     <addaction name="actionHigh_Precision"/>
-     <addaction name="actionMedium_Precision"/>
-     <addaction name="actionLow_Precision"/>
+     <addaction name="actionPoint_cloud_densification_Meshing"/>
+     <addaction name="actionPoint_cloud_densification"/>
+     <addaction name="actionMeshing"/>
     </widget>
     <widget class="QMenu" name="menuAppend_new_photos">
      <property name="title">
@@ -1663,6 +1661,21 @@
   <action name="actionUndo_append">
    <property name="text">
     <string>Undo append</string>
+   </property>
+  </action>
+  <action name="actionPoint_cloud_densification">
+   <property name="text">
+    <string>Point Cloud Densification</string>
+   </property>
+  </action>
+  <action name="actionMeshing">
+   <property name="text">
+    <string>Meshing</string>
+   </property>
+  </action>
+  <action name="actionPoint_cloud_densification_Meshing">
+   <property name="text">
+    <string>Point Cloud Densification + Meshing</string>
    </property>
   </action>
  </widget>

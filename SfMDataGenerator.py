@@ -16,9 +16,9 @@ class SfMDataGenerator:
         self.log = log
         #['ExifImageWidth', 'ExifImageHeight', 'Make', 'Model', 'ExifImageWidth', 'ExifImageHeight', 'FocalLength']
 
-    def getExifDict(self, imageUrl):
+    # TODO add a option for generating SfMData when ther's no EXIF data
+    def getExifDict(self, imageUrl, exifTags = ['ExifImageWidth', 'ExifImageHeight', 'Make', 'Model', 'ExifImageWidth', 'ExifImageHeight', 'FocalLength']):
         if os.path.isfile(imageUrl):
-            exifTags = ['ExifImageWidth', 'ExifImageHeight', 'Make', 'Model', 'ExifImageWidth', 'ExifImageHeight', 'FocalLength']
             exifDict = {}
             for (k, v) in Image.open(imageUrl)._getexif().iteritems():
                 tag = TAGS.get(k)
@@ -31,6 +31,7 @@ class SfMDataGenerator:
             if set(exifDict.keys()) == set(exifTags):
                 return exifDict
         return None
+
 
     def getSfMData(self):
         sfmData     = OrderedDict()
@@ -46,6 +47,7 @@ class SfMDataGenerator:
         key = 0
 
         for imageName in imageList:
+            # TODO add a option for generating SfMData when ther's no EXIF data
             exifDict = self.getExifDict(os.path.join(self.projectStatus.inputDir, imageName))
             if exifDict == None:
                 if self.log:

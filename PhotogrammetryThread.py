@@ -24,8 +24,8 @@ class PhotogrammetryThread(QtCore.QThread):
         self.wait()
 
     def run(self):
-        print "DISABLING MENU"
-        self.log(["disableMenu"])
+        self.log(["disableMenu", self.command])
+        print "COMMAND >>", self.command, "<< COMMAND"
         p = None
         if self.command == 'initialize':
             jsonStatus = self.incPG.getIncrementalInitialization()
@@ -71,10 +71,17 @@ class PhotogrammetryThread(QtCore.QThread):
             if self.incPG.getSparseReconstruction():
                 self.log([" Display the file using meshlab "])
                 p = subprocess.Popen(["meshlab", self.projectStatus.openMVGSfMColorizedOutputFile])
-
-        elif self.command == 'final':
+                subprocess.Popen(["eog", self.projectStatus.openMVGSfMRotationGraphFile])
+        elif self.command == "dense":
             """ Generate the dense reconstruction file """
-            if self.incPG.getDenseReconstruction(scale=self.arg):
+            if self.incPG.getDenseReconstruction(scale = self.arg):
+                self.meshlab_process = p = subprocess.Popen(["meshlab", self.projectStatus.mveScene2PsetOutputFile])
+        elif self.command == "mesh":
+            if self.incPG.getMesh(scale = self.arg):
+                self.meshlab_process = p = subprocess.Popen(["meshlab", self.projectStatus.mveMeshCleanOutputFile])
+        elif self.command == 'final':
+            """ Generate the final reconstruction file """
+            if self.incPG.getFinalReconstruction(scale=self.arg):
                 """ Display the file using meshlab"""
                 self.meshlab_process = p = subprocess.Popen(["meshlab", self.projectStatus.mveMeshCleanOutputFile])
         elif self.command == 'texture':

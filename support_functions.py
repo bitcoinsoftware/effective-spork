@@ -3,6 +3,14 @@ import os
 import shutil
 from PyQt4 import QtCore, QtGui
 
+
+def fileNotEmpty(url):
+    if os.path.isfile(url):
+        fsize = os.stat(url)
+        if fsize.st_size > 0:
+            return True 
+    return False
+
 def getImagesList(folderUrl):
     photoNameList = glob.glob1(folderUrl, '*.jpg') + glob.glob1(folderUrl, '*.JPG') + glob.glob1(folderUrl, '*.png')
     photoNameList += glob.glob1(folderUrl, '*.jpeg') + glob.glob1(folderUrl, '*.JPEG') + glob.glob1(folderUrl,'*.PNG')

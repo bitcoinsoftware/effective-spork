@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'mainWindow.ui'
 #
-# Created: Mon Sep  5 10:13:33 2016
+# Created: Fri Sep  9 20:33:30 2016
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -578,16 +578,20 @@ class Ui_MainWindow(object):
         self.actionStop.setObjectName(_fromUtf8("actionStop"))
         self.actionUndo_append = QtGui.QAction(MainWindow)
         self.actionUndo_append.setObjectName(_fromUtf8("actionUndo_append"))
+        self.actionPoint_cloud_densification = QtGui.QAction(MainWindow)
+        self.actionPoint_cloud_densification.setObjectName(_fromUtf8("actionPoint_cloud_densification"))
+        self.actionMeshing = QtGui.QAction(MainWindow)
+        self.actionMeshing.setObjectName(_fromUtf8("actionMeshing"))
+        self.actionPoint_cloud_densification_Meshing = QtGui.QAction(MainWindow)
+        self.actionPoint_cloud_densification_Meshing.setObjectName(_fromUtf8("actionPoint_cloud_densification_Meshing"))
         self.menuNew_project.addAction(self.actionNormal_precision)
         self.menuNew_project.addAction(self.actionHigh_precision)
         self.menuNew_project.addAction(self.actionUltra_precision)
         self.menuFile.addAction(self.menuNew_project.menuAction())
         self.menuFile.addAction(self.actionLoad_project)
-        self.menuCompute_final_reconstruction.addAction(self.actionUltra_Precision)
-        self.menuCompute_final_reconstruction.addAction(self.actionVery_High)
-        self.menuCompute_final_reconstruction.addAction(self.actionHigh_Precision)
-        self.menuCompute_final_reconstruction.addAction(self.actionMedium_Precision)
-        self.menuCompute_final_reconstruction.addAction(self.actionLow_Precision)
+        self.menuCompute_final_reconstruction.addAction(self.actionPoint_cloud_densification_Meshing)
+        self.menuCompute_final_reconstruction.addAction(self.actionPoint_cloud_densification)
+        self.menuCompute_final_reconstruction.addAction(self.actionMeshing)
         self.menuAppend_new_photos.addAction(self.actionTo_weak_nodes_only)
         self.menuAppend_new_photos.addAction(self.actionTo_all_old_nodes)
         self.menuAppend_new_photos.addAction(self.actionTo_smart_choosen_nodes)
@@ -674,4 +678,7 @@ class Ui_MainWindow(object):
         self.actionStart.setText(_translate("MainWindow", "Start", None))
         self.actionStop.setText(_translate("MainWindow", "Stop", None))
         self.actionUndo_append.setText(_translate("MainWindow", "Undo append", None))
+        self.actionPoint_cloud_densification.setText(_translate("MainWindow", "Point Cloud Densification", None))
+        self.actionMeshing.setText(_translate("MainWindow", "Meshing", None))
+        self.actionPoint_cloud_densification_Meshing.setText(_translate("MainWindow", "Point Cloud Densification + Meshing", None))
 
