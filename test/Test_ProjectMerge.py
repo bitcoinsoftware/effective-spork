@@ -116,32 +116,197 @@ class Test_ProjectMerge(unittest.TestCase):
         #productMatrix   = np.array([twinPoses[0]['pose_center'][1] + [0], twinPoses[1]['pose_center'][1] + [0], twinPoses[2]['pose_center'][1] + [0], np.array([0,0,0,1])], dtype=np.float64)
 
 
-    def test_getTransformationMatrix(self):
-        pm = ProjectMerge.ProjectMerge(self.pso1, self.pso2)
-        twinNames = pm.getTwinPhotos()
-        tm= pm.getTransformationMatrix(twinNames)
+    def test_experiment(self):
+        pass
+        """
+        import numpy as np
+        tm =[]
+        tm.append([7.84106293e-01,    6.98229290e-02,   2.68352754e-01, - 1.15654966e-16])
+        tm.append([-8.59905447e-02,   8.39704868e-01,   2.75990766e-02,   2.22044605e-16])
+        tm.append([-2.49929837e-01,   6.56019049e-02,   1.37056303e+00,   1.66533454e-16])
+        tm.append([1.24976956e-01,  - 6.12366254e-02, - 9.27338090e-01,   1.00000000e+00])
+        tm = np.array(tm)
+        print "Begining: \n", tm
+
+        print "Transposed: \n", np.transpose(tm)
+
+        tm1 = np.transpose(tm)
+        sx = np.dot(tm1[0], tm1[0])
+        sy = np.dot(tm1[1], tm1[1])
+        sz = np.dot(tm1[2], tm1[2])
+        print "S1. sx=%f sy=%f sz=%f" % (sx, sy, sz)
+
+        tm1[0] = np.array(tm1[0])/sx
+        tm1[1] = np.array(tm1[1])/sy
+        tm1[2] = np.array(tm1[2])/sz
+        print "Scaled 1: \n", tm1
+        print"#####################################"
+
+        tm =[]
+        tm.append([7.84106293e-01,    6.98229290e-02,   2.68352754e-01, - 1.15654966e-16])
+        tm.append([-8.59905447e-02,   8.39704868e-01,   2.75990766e-02,   2.22044605e-16])
+        tm.append([-2.49929837e-01,   6.56019049e-02,   1.37056303e+00,   1.66533454e-16])
+        tm.append([1.24976956e-01,  - 6.12366254e-02, - 9.27338090e-01,   1.00000000e+00])
+        tm = np.array(tm)
+
+        tm1 = tm
+        sx = np.dot(tm1[0], tm1[0])
+        sy = np.dot(tm1[1], tm1[1])
+        sz = np.dot(tm1[2], tm1[2])
+        print "S2. sx=%f sy=%f sz=%f" % (sx, sy, sz)
+
+        tm1[0] = np.array(tm1[0])/sx
+        tm1[1] = np.array(tm1[1])/sy
+        tm1[2] = np.array(tm1[2])/sz
+        print "Scaled 2: \n", tm1
+
+        print"#####################################"
+
+        tm =[]
+        tm.append([7.84106293e-01,    6.98229290e-02,   2.68352754e-01, 0])
+        tm.append([-8.59905447e-02,   8.39704868e-01,   2.75990766e-02, 0])
+        tm.append([-2.49929837e-01,   6.56019049e-02,   1.37056303e+00, 0])
+        tm.append([0,           0,              0,            1.00000000e+00])
+        tm = np.array(tm)
+
+        tm1 = tm
+        sx = np.dot(tm1[0], tm1[0])
+        sy = np.dot(tm1[1], tm1[1])
+        sz = np.dot(tm1[2], tm1[2])
+        print "S3. sx=%f sy=%f sz=%f" % (sx, sy, sz)
+
+        tm1[0] = np.array(tm1[0])/sx
+        tm1[1] = np.array(tm1[1])/sy
+        tm1[2] = np.array(tm1[2])/sz
+        print "Scaled 3: \n", tm1
 
 
-        v = [
-                -0.021046670260812347,
-                0.27156776791372739,
-                1.7699788350567121,
-                0
-            ]
+        print"#####################################"
 
-        print np.dot(tm, v)
+        tm =[]
+        tm.append([7.84106293e-01,    6.98229290e-02,   2.68352754e-01, 0])
+        tm.append([-8.59905447e-02,   8.39704868e-01,   2.75990766e-02, 0])
+        tm.append([-2.49929837e-01,   6.56019049e-02,   1.37056303e+00, 0])
+        tm.append([0,           0,              0,            1.00000000e+00])
+        tm = np.array(tm)
 
-        v = [
-            -0.34307160550124544,
-            0.29449522610308648,
-            1.4909544294837009,
-            0
-        ]
+        tm1 = np.transpose(tm)
+        sx = np.dot(tm1[0], tm1[0])
+        sy = np.dot(tm1[1], tm1[1])
+        sz = np.dot(tm1[2], tm1[2])
+        print "S4. sx=%f sy=%f sz=%f" % (sx, sy, sz)
 
-        print np.dot(tm, v)
+        tm1[0] = np.array(tm1[0])/sx
+        tm1[1] = np.array(tm1[1])/sy
+        tm1[2] = np.array(tm1[2])/sz
+        print "Scaled 4: \n", tm1
+
+
+        print"#####################################"
+
+        tm =[]
+        tm.append([7.84106293e-01,    6.98229290e-02,   2.68352754e-01, 0])
+        tm.append([-8.59905447e-02,   8.39704868e-01,   2.75990766e-02, 0])
+        tm.append([-2.49929837e-01,   6.56019049e-02,   1.37056303e+00, 0])
+        tm.append([0,           0,              0,            1.00000000e+00])
+        tm = np.array(tm)
+
+        tm1 = np.transpose(tm)
+        #sx = np.dot(tm1[0], tm1[0])
+        #sy = np.dot(tm1[1], tm1[1])
+        #sz = np.dot(tm1[2], tm1[2])
+        #print "S5. sx=%f sy=%f sz=%f" % (sx, sy, sz)
+
+        tm1[0] = np.array(tm1[0])/sx
+        tm1[1] = np.array(tm1[1])/sy
+        tm1[2] = np.array(tm1[2])/sz
+        print "Not Scaled 5: \n", tm1
+
+
+        tm =[]
+        tm.append([7.84106293e-01,    6.98229290e-02,   2.68352754e-01, 0])
+        tm.append([-8.59905447e-02,   8.39704868e-01,   2.75990766e-02, 0])
+        tm.append([-2.49929837e-01,   6.56019049e-02,   1.37056303e+00, 0])
+        tm.append([0,           0,              0,            1.00000000e+00])
+        tm = np.array(tm)
+
+        rm = np.array(
+            [[0.99862614278660422, 0.0043208250668095331, -0.05222219273346012,   0],
+             [-0.0052536207562669263, 0.99982886671926186, -0.017738002813899093, 0],
+             [0.052136612971096868, 0.01798798892646427, 0.99847794459481343,     0],
+             [   1,                  1,                      1,                  1]])
+
+        #print "np.dot(rm, tm1[:3,:3]) \n",np.dot(rm, tm1[:3,:3])
+        print tm1.shape, rm.shape
+        print "$$$ ---> 1 \n", np.dot(np.transpose(tm), rm)
+        print "$$$ ---> 2 \n", np.dot(tm, rm)
+        print "$$$ ---> 3 \n", np.dot(rm, tm)
+        print "$$$ ---> 4 \n", np.dot(np.transpose(rm), tm)
+        print "$$$ ---> 5 \n", np.dot(np.transpose(rm), np.transpose(tm))
+
+        print "####################"
+        tm = []
+        tm.append([7.84106293e-01, 6.98229290e-02, 2.68352754e-01, 0])
+        tm.append([-8.59905447e-02, 8.39704868e-01, 2.75990766e-02, 0])
+        tm.append([-2.49929837e-01, 6.56019049e-02, 1.37056303e+00, 0])
+        tm.append([0, 0, 0, 1.00000000e+00])
+        tm = np.array(tm)
+
+        rm = np.array(
+            [[0.99862614278660422, 0.0043208250668095331, -0.05222219273346012, 0],
+             [-0.0052536207562669263, 0.99982886671926186, -0.017738002813899093, 0],
+             [0.052136612971096868, 0.01798798892646427, 0.99847794459481343, 0],
+             [0, 0, 0, 1]])
+
+        # print "np.dot(rm, tm1[:3,:3]) \n",np.dot(rm, tm1[:3,:3])
+        print tm1.shape, rm.shape
+        print "$$$ ---> 1 \n", np.dot(np.transpose(tm), rm)
+        print "$$$ ---> 2 \n", np.dot(tm, rm)
+        print "$$$ ---> 3 \n", np.dot(rm, tm)
+        print "$$$ ---> 4 \n", np.dot(np.transpose(rm), tm)
+        print "$$$ ---> 5 \n", np.dot(np.transpose(rm), np.transpose(tm))
+        """
+
+    def test_experiment2(self):
+        import numpy as np
+        tm =[]
+        tm.append([7.84106293e-01,    6.98229290e-02,   2.68352754e-01, 0])
+        tm.append([-8.59905447e-02,   8.39704868e-01,   2.75990766e-02, 0])
+        tm.append([-2.49929837e-01,   6.56019049e-02,   1.37056303e+00, 0])
+        tm.append([1.24976956e-01,  - 6.12366254e-02, - 9.27338090e-01, 1])
+        tm = np.array(tm)
+
+
+        #print "Begining: \n", tm
+
+        #sx = np.dot([tm[0,0], tm[0,1], tm[0,2] ], [tm[0,0], tm[0,1], tm[0,2] ])
+        #sy = np.dot([tm[1,0], tm[1,1], tm[1,2] ], [tm[1,0], tm[1,1], tm[1,2] ])
+        #sz = np.dot([tm[2,0], tm[2,1], tm[2,2] ], [tm[2,0], tm[2,1], tm[2,2] ])
+        #print "S1. sx=%f sy=%f sz=%f" % (sx, sy, sz)
+
+        tx = tm[:3,:3]
+        #print tx
+
+        g = np.linalg.svd(tx)
+        #print "SVD\n", g
+
+        rm = np.array(
+            [[0.99862614278660422, 0.0043208250668095331, -0.05222219273346012      ],
+             [-0.0052536207562669263, 0.99982886671926186, -0.017738002813899093    ],
+             [0.052136612971096868, 0.01798798892646427, 0.99847794459481343        ]
+             ])
+        #print "RM\n", rm
+        #print "XXXXX 1\n", np.dot(g[0], rm)
+        #print "XXXXX 2\n", np.dot(g[2], rm)
+        #print "XXXXX 3\n", np.dot(np.transpose(g[0]), rm)
+        #print "XXXXX 4\n", np.dot(np.transpose(g[2]), rm)
+
+
 
     def test_mergeProjects(self):
-        pm = ProjectMerge.ProjectMerge(self.pso1, self.pso2)
-        output_sfm_url = "/home/array/Dokumenty/Gritworld/Incremental3DRecon/GritRena/test/data/projectMerge/merged"
-        pm.mergeProjects(self.pso1.url, self.pso2.url, output_sfm_url)
+        pso1 = ProjectStatus.ProjectStatus("/home/array/Dokumenty/Gritworld/Incremental3DRecon/GritRena/test/data/projectMerge/Mirow/part1/output/projectStatus.json")
+        pso2 = ProjectStatus.ProjectStatus("/home/array/Dokumenty/Gritworld/Incremental3DRecon/GritRena/test/data/projectMerge/Mirow/part2/output/projectStatus.json")
+        pm = ProjectMerge.ProjectMerge(pso1, pso2)
+        output_sfm_url = "/home/array/Dokumenty/Gritworld/Incremental3DRecon/GritRena/test/data/projectMerge/Mirow/merged"
+        pm.mergeProjects(pso1.url, pso2.url, output_sfm_url)
 
