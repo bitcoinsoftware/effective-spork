@@ -1,102 +1,282 @@
+import os, json, math
 import numpy as np
-import json
-import os
-import shutil
-
-import SfMDataGenerator
-import ProjectStatus
 import support_functions
+import ProjectStatus
+import SfMDataGenerator
 
 class ProjectMerge:
-    def __init__(self, firstProjectStatusObject, secondProjectStatusObject, log = None):
-        self.pso_1 = firstProjectStatusObject
-        self.pso_2 = secondProjectStatusObject
-
+    def __init__(self, psObject1, psObject2, outputDirUrl, log = None):
+        self.psObject1 = psObject1
+        self.psObject2 = psObject2
+        self.outputDirUrl = outputDirUrl
         if log:
             self.log = log
+        self.transformationMatrix = np.identity(4)
 
     def log(self, txt_array):
         for txt in txt_array:
             print(txt)
 
-    def getViewIdAndPoseId(self, photoName, views):
-        for view in views:
-            if view["value"]["ptr_wrapper"]["data"]["filename"] == photoName:
-                return view["value"]["ptr_wrapper"]["data"]["id_view"] , view["value"]["ptr_wrapper"]["data"]["id_pose"]
-        return None, None
+    def mergeProjects(self, mode = None):
+        if os.path.isdir(self.outputDirUrl):
+            if mode == None:
+                mode = self.getMode(self.psObject1, self.psObject2)
+            if self.psObject1.successful and self.psObject2.successful:
+                self.psObjectOut = ProjectStatus.ProjectStatus(self.outputDirUrl, mode)
+                self.psObjectOut.successful = True
+                if self.psObject1.sparse_reconstruction and self.psObject2.sparse_reconstruction:
+                    self.psObjectOut.sparse_reconstruction = True
+                    #TODO
+                    twinNames, twinNamesWithOtherEXIF = self.getTwinNames()
+                    name_trans_dict = self.getPhotoNameTransformationDict(twinNamesWithOtherEXIF)
+                    support_functions.copyImages(self.psObject1.inputDir, self.psObjectOut.inputDir)
+                    support_functions.copyImages(self.psObject2.inputDir, self.psObjectOut.inputDir, dont_copy = twinNames, change_name_dict = name_trans_dict)
 
-    def getPoseCenterAndRotation(self, poseId, poses):
-        for extrinsic in poses:
-            if extrinsic["key"] == poseId:
-                return extrinsic["value"]["center"] , extrinsic["value"]["rotation"]
-        return None, None
+                    self.psObjectOut.photos = support_functions.getImagesList(self.outputDirUrl) #list(set(self.psObject1.photos + self.psObject2.photos))
 
-    def getViewData(self, photoName):
-        """ Returnes photoName:"name", viewIDs:(id_0, id_1), poseIDs:(id0, id1) ,center:[0,0,0], rotation """
-        with open(self.pso_1.openMVGSfMJSONOutputFile) as f1:
-            with open(self.pso_2.openMVGSfMJSONOutputFile) as f2:
-                pso_1_listing = json.load(f1)
-                pso_2_listing = json.load(f2)
+                    if support_functions.fileNotEmpty(self.psObject1.openMVGSfMOutputFile) or support_functions.fileNotEmpty(self.psObject2.openMVGSfMJSONOutputFile):
+                        psObject1_SfmUrl, psObject2_SfmUrl, outputSfmFileUrl = self.getSfmUrls()
+                        self.mergeSfMFiles(psObject1_SfmUrl, psObject2_SfmUrl, outputSfmFileUrl, self.outputDirUrl , name_trans_dict)
+                        self.psObjectOut.saveCurrentStatus()
+                else:
+                    self.log(["You must provide projects with computed sparse reconstruction"])
+            else:
+                self.log(["You must provide projects that ware successfuly initialized !!"])
+        else:
+            self.log(["Provided output project URL doesnt exist", self.outputDirUrl])
 
-                pso_1_view_id, pso_1_pose_id            = self.getViewIdAndPoseId(photoName, pso_1_listing[u'views'])
-                pso_2_view_id, pso_2_pose_id            = self.getViewIdAndPoseId(photoName, pso_2_listing[u'views'])
+    def getPhotoNameTransformationDict(self, twinNamesWithOtherEXIF):
+        tr_dict = {}
+        if twinNamesWithOtherEXIF:
+            for twName in twinNamesWithOtherEXIF:
+                tr_dict[twName] = support_functions.modifyFileName(twName)
+        return tr_dict
 
-                pso_1_pose_center, pso_1_pose_rotation  = self.getPoseCenterAndRotation(pso_1_view_id, pso_1_listing['extrinsics'])
-                pso_2_pose_center, pso_2_pose_rotation  = self.getPoseCenterAndRotation(pso_2_view_id, pso_2_listing['extrinsics'])
-                return {"name":photoName, "view_id":(pso_1_view_id, pso_2_view_id), "pose_center":(pso_1_pose_center, pso_2_pose_center), "pose_rotation":(pso_1_pose_rotation, pso_2_pose_rotation)}
 
-    def getTwinPoses(self):
-        twinPhotoNames = self.getTwinPhotos()
-        twinPoses = []
-        for twinPhoto in twinPhotoNames:
-            twinPoses.append(self.getViewData(twinPhoto))
-        return twinPoses
+    def mergeSfMFiles(self, psObject1_SfmUrl, psObject2_SfmUrl, outputSfmFileUrl, output_base_folder, name_trans_dict ={}):
+        with open(psObject1_SfmUrl) as f1:
+            sfm_JSON = json.load(f1)
+            sfm_JSON_out = {"sfm_data_version": "0.2"}
+            sfm_JSON_out["root_path"]      = output_base_folder
+            sfm_JSON_out["control_points"] = []
+            with open(psObject2_SfmUrl) as f2:
+                twin_names, twinNamesWithOtherEXIF = self.getTwinNames()
+                self.getRelationDict(twin_names)
+                sfm_JSON_2 = json.load(f2)
+                self.getIntrinsicTransformationDict(sfm_JSON, sfm_JSON_2, twin_names)
+                #first add intrinsics
+                sfm_JSON_out["views"]       = self.getMergedViews(sfm_JSON, sfm_JSON_2, name_trans_dict)
+                sfm_JSON_out["intrinsics"]  = self.addIntrinsiscs(sfm_JSON, sfm_JSON_2, twin_names)
+                #than iterate over the views and choose the intrinsic that relates to more photos  - the more photos the better optics estimation
+                self.computeTransformations(sfm_JSON, sfm_JSON_2)
 
-    def getTwinPhotos(self):
-        """ Iterate over the twin photo names and check if the EXIF match"""
-        sfmDG_1 = SfMDataGenerator.SfMDataGenerator(self.pso_1)
-        sfmDG_2 = SfMDataGenerator.SfMDataGenerator(self.pso_2)
-        twinPhotoNames = self.getTwinPhotoNames()
-        verifiedTwinPhotoNames = []
-        exif_keys = ['Make', 'Model', 'ExifImageWidth', 'ExifImageHeight', 'FocalLength', 'DateTime']
-        for photoName in twinPhotoNames:
-            exif_1 = sfmDG_1.getExifDict(os.path.join(self.pso_1.inputDir, photoName), exif_keys)
-            exif_2 = sfmDG_2.getExifDict(os.path.join(self.pso_2.inputDir, photoName), exif_keys)
-            if exif_1 == exif_2:
-                verifiedTwinPhotoNames.append(photoName)
-        return verifiedTwinPhotoNames
+                sfm_JSON_out["structure"]   = self.getMergedStructure(sfm_JSON, sfm_JSON_2)
+                #sfm_JSON_out["structure"] = sfm_JSON["structure"]
+                sfm_JSON_out["extrinsics"]  = self.getMergedExtrinsics(sfm_JSON, sfm_JSON_2)
+                self.removeOrphanedIntrinsics(sfm_JSON_out)
+                with open(outputSfmFileUrl, "w") as of:
+                    json.dump(sfm_JSON_out, of, indent=4)
 
-    def getTwinPhotoNames(self):
-        """ Finds images that are a common part of two projects"""
-        with open(self.pso_1.url) as f1:
-            pso_1_listing = json.load(f1)
-            with open(self.pso_2.url) as f2:
-                pso_2_listing = json.load(f2)
-                return list(set(pso_1_listing['photos']).intersection(pso_2_listing["photos"]))
 
-    def getViewsParamsList(self, listing):
-        views = listing['views']
-        views_data = []
-        for view in views:
-            photo_name   = view["value"]["ptr_wrapper"]["data"]["filename"]
-            photo_size   = (view["value"]["ptr_wrapper"]["data"]["width"], view["value"]["ptr_wrapper"]["data"]["height"])
+    def removeOrphanedIntrinsics(self, sfmJSON):
+        intr_rel_dict = self.getIntrinsicRelatedViews(sfmJSON)
+        i = 0
+        for intr_key in intr_rel_dict.keys():
+            if len(intr_rel_dict[intr_key]) == 0:
+                sfmJSON["intrinsics"].pop(intr_key - i)
+                i+=1
+        return sfmJSON
 
-            views_data.append(json.dumps([photo_name, photo_size]))
-        return views_data
 
-    def getViewIntrinsicParams(self, view, intrinsics):
-        intrinsic_id = view['value']["ptr_wrapper"]['data']['id_intrinsic']
-        intrinsic = None
-        for intri in intrinsics:
-            if intri['key'] == intrinsic_id:
-                intrinsic = intri
+    def getMergedViews(self, sfm_JSON, sfm_JSON_2, name_trans_dict = {}):
+        """1. Iterate over proj1 and modify the intrinsic fields if required
+           2. Iterate over proj2, if it's a dubbled view, pass it else change the keys, id_pose, id_view and id_intrinsic"""
+        # 1. Iterate over proj1, modify the intrinsic key if in project2 there are more photos related to the same intrinsic
+        intr_rel_views_1 = self.getIntrinsicRelatedViews(sfm_JSON)
+        intr_rel_views_2 = self.getIntrinsicRelatedViews(sfm_JSON_2)
+
+        views_last_key = sfm_JSON["views"][-1]["key"]
+        views_last_id = sfm_JSON["views"][-1]["value"]["ptr_wrapper"]["id"]
+        views_out = sfm_JSON["views"]
+        i = 0
+        for view in sfm_JSON["views"]:
+            intr_id = view["value"]["ptr_wrapper"]["data"]["id_intrinsic"]
+            if intr_id in self.intrinsic_transformation_dict.keys():  # if there are more photos made with the same intrinsic in the first project than choose this intrinsic
+                if len(intr_rel_views_2[intr_id]) > len(intr_rel_views_1[self.intrinsic_transformation_dict[intr_id]]):
+                    view["value"]["ptr_wrapper"]["data"]["id_intrinsic"] = self.intrinsic_transformation_dict[intr_id] + len(self.intrinsic_transformation_dict.keys())
+
+        i = 0
+        for view in sfm_JSON_2["views"]:
+            if view["key"] not in self.relation_dict.values(): #if it's not a doubled photo
+                i+=1
+                view["key"]                                             = views_last_key + i
+                view["value"]["ptr_wrapper"]["id"]                      = views_last_id + i
+                view["value"]["ptr_wrapper"]["data"]["id_pose"]         = view["key"]
+                view["value"]["ptr_wrapper"]["data"]["id_view"]         = view["key"]
+
+                if view["value"]["ptr_wrapper"]["data"]["filename"] in name_trans_dict.keys():
+                    view["value"]["ptr_wrapper"]["data"]["filename"] = name_trans_dict[view["value"]["ptr_wrapper"]["data"]["filename"]]
+
+                intr_id = view["value"]["ptr_wrapper"]["data"]["id_intrinsic"]
+                #TODO Naprawic Intrinsics
+                if intr_id in self.inverse_intrinsic_transformation_dict.keys(): #if there are more photos made with the same intrinsic in the first project than choose this intrinsic
+                    if len(intr_rel_views_2[intr_id]) < len(intr_rel_views_1[self.inverse_intrinsic_transformation_dict[intr_id]]):
+                        view["value"]["ptr_wrapper"]["data"]["id_intrinsic"]    = self.inverse_intrinsic_transformation_dict[intr_id]
+                    else:
+                        view["value"]["ptr_wrapper"]["data"]["id_intrinsic"]    = len(sfm_JSON["intrinsics"]) + view["value"]["ptr_wrapper"]["data"]["id_intrinsic"]
+                views_out.append(view)
+
+        return views_out
+
+
+    def getMergedStructure(self, sfm_JSON, sfm_JSON_2):
+        structure_out = sfm_JSON["structure"]
+        structure_last_key = sfm_JSON["structure"][-1]["key"]
+        m = 0
+
+        ps1_view_number = len(sfm_JSON["views"]) - len(sfm_JSON_2["views"])
+        #print " ps1_view_number",  ps1_view_number
+        doubled_photos_number = len(self.relation_dict.keys())
+        #print "doubled_photos_number", doubled_photos_number
+        #print "computed last view id =", ps1_view_number - len(sfm_JSON_2["views"]) - 2*doubled_photos_number
+        #print "ps1_view_number %d , ps2_views_len %d , 2*doubled_photos %d" % ( ps1_view_number , len(sfm_JSON_2["views"]) , 2*doubled_photos_number )
+
+        #iterate over project 2 points and transform the coordinates, rotations and observation ids
+        for point in sfm_JSON_2["structure"]:#[6891:6892]:
+            m += 1
+            point["key"] = structure_last_key + m
+            point["value"]["X"] = self.getCoordinates(point["value"]["X"])
+            for observation in point["value"]["observations"]:
+                k = observation["key"]
+                if k in self.relation_dict.values(): #if it's a doubled photo
+                    observation["key"] = self.inverse_relation_dict[observation["key"]]
+                    #print "TRANSLATED >>>>\n", observation
+                else:
+                    observation["key"] = ps1_view_number + k - doubled_photos_number
+            structure_out.append(point)
+        return structure_out
+
+
+    def getMergedExtrinsics(self, sfm_JSON, sfm_JSON_2):
+        """ Change the extrinsic from the second project """
+        extrinsics_last_key = sfm_JSON["extrinsics"][-1]["key"]
+        l = 0
+        for extrinsic in sfm_JSON_2["extrinsics"]:
+            if extrinsic["key"] not in self.relation_dict.values(): #if it's not a doubled photo
+                l += 1
+                extrinsic["key"] = extrinsics_last_key + l
+                extrinsic["value"]["rotation"]  = self.getExtrinsicRotation(extrinsic["value"]["rotation"])
+                extrinsic["value"]["center"]    = self.getCoordinates(extrinsic["value"]["center"])
+                #extrinsic["value"]["center"]    = self.getCoordinates(extrinsic["value"]["center"])
+                sfm_JSON["extrinsics"].append(extrinsic)
+        return sfm_JSON["extrinsics"]
+
+    """
+    def getExtrinsicTransformationMatrix(self, sfm_JSON, sfm_JSON_2, relation_dict):
+        centers_1 , centers_2 = [], []
+        extrinsics_1 = sfm_JSON["extrinsics"]
+        extrinsics_2 = sfm_JSON_2["extrinsics"]
+        for extrinsic_ps_1_id in relation_dict.keys():
+            centers_1.append(extrinsics_1[extrinsic_ps_1_id]["value"]["center"] + [1])
+            centers_2.append(extrinsics_2[relation_dict[extrinsic_ps_1_id]]["value"]["center"] + [1])
+        return np.linalg.lstsq(np.array(centers_2), np.array(centers_1))[0]
+    """
+
+    def getCoordinates(self, coordVect):
+        vect = np.array(coordVect+[1])
+        outputVec = np.dot(vect, self.transformationMatrix)
+        #outputVec = np.dot(np.transpose(self.transformationMatrix), vect)
+        return outputVec[0:3].tolist()
+
+    def getExtrinsicCoordinates(self, coordVect):
+        vect = np.array(coordVect+[1])
+        outputVec = np.dot(vect, self.extrinsicTransformationMatrix)
+        #print "TRANSFORMATION FROM >>>> \n", vect
+        #print "TO >>>>> \n", outputVec
+        return outputVec[0:3].tolist()
+
+    def getExtrinsicRotation(self, rotationMat):
+        rm = np.array(rotationMat)
+        rm_out = np.dot(rm, self.transformationMatrix[:3,:3])
+        scale = [1,1,1]
+        scale[0] = math.sqrt(np.dot(rm_out[0], rm_out[0]))
+        scale[1] = math.sqrt(np.dot(rm_out[1], rm_out[1]))
+        scale[2] = math.sqrt(np.dot(rm_out[2], rm_out[2]))
+
+        rm_out[0] = rm_out[0]/ scale[0]
+        rm_out[1] = rm_out[1]/ scale[1]
+        rm_out[2] = rm_out[2]/ scale[2]
+
+        return rm_out.tolist()
+
+    def computeTransformations(self, sfm_JSON, sfm_JSON_2):
+        """Analyse two sfm_data files and find points that ware generated by the same set of photos.
+        Verify them by checking if they relate to the same pixeles on the 2D photos"""
+        """ Create a relation dict pso1_view_id -> pso2_view_id """
+        pso_1_twin_keys = self.relation_dict.keys()
+        pso_2_twin_keys = self.relation_dict.values()
+
+        observation_dict = {}
+        structure = sfm_JSON_2["structure"]
+        i =0
+        for point in structure:
+            """ Check if the structure point was generated from twin photos """
+            views_intersection = set(pso_2_twin_keys).intersection(self.getObservationKeys(point["value"]["observations"]))
+            if len(views_intersection) >= 3:
+                for observation in point["value"]["observations"]:
+                    if observation["key"] in views_intersection:
+                        observation_key = "%d:(%.2f,%.2f)" % (observation["key"], observation["value"]["x"][0], observation["value"]["x"][1])
+                        observation_dict[observation_key] = [point["value"]["X"], point["key"]]
+                        break
+                sfm_JSON_2["structure"].pop(i)
+        i+=1
+
+        """ Iterate the spo1 points and look for points from spo2 related to them"""
+        pso_1_point_matrix = []
+        pso_2_point_matrix = []
+
+
+        limit = 100000 # the maximum number of points for rotation
+        structure = sfm_JSON["structure"]
+        for point in structure:
+            if limit < 0:
                 break
-        if intrinsic != None:
-            intrinsic_params = []
-            intrinsic_params.append(intrinsic['value']["ptr_wrapper"]['data']['focal_length'])
-            intrinsic_params.append(intrinsic['value']["ptr_wrapper"]['data']['width'])
-            intrinsic_params.append(intrinsic['value']["ptr_wrapper"]['data']['height'])
-            return intrinsic_params
+            for observation in point["value"]["observations"]:
+                key = observation["key"]
+                if key in pso_1_twin_keys:
+                    observation_key = "%d:(%.2f,%.2f)" % (self.relation_dict[key], observation["value"]["x"][0], observation["value"]["x"][1])
+                    if observation_key in observation_dict:
+                        result = observation_dict[observation_key]
+                        pso_1_point_matrix.append(point["value"]["X"] + [1])
+                        pso_2_point_matrix.append(result[0] + [1])
+
+                        limit -= 1
+                        break
+
+        extrinsics_1 = sfm_JSON["extrinsics"]
+        extrinsics_2 = sfm_JSON_2["extrinsics"]
+        for extrinsic_ps_1_id in self.relation_dict.keys():
+            pso_1_point_matrix.append(extrinsics_1[extrinsic_ps_1_id]["value"]["center"] + [1])
+            pso_2_point_matrix.append(extrinsics_2[self.relation_dict[extrinsic_ps_1_id]]["value"]["center"] + [1])
+
+        self.transformationMatrix = np.linalg.lstsq( np.array(pso_2_point_matrix), np.array(pso_1_point_matrix))[0]
+
+        #scale, tm = [1,1,1], self.transformationMatrix
+        #scale[0] = math.sqrt(np.dot(tm[0], tm[0]))
+        #scale[1] = math.sqrt(np.dot(tm[1], tm[1]))
+        #scale[2] = math.sqrt(np.dot(tm[2], tm[2]))
+
+        #tm[0] = tm[0]/ scale[0]
+        #tm[1] = tm[1]/ scale[1]
+        #tm[2] = tm[2]/ scale[2]
+        #self.extrinsicTransformationMatrix = tm
+
+        #self.getExtrinsicTransformationMatrix(sfm_JSON, sfm_JSON_2, self.relation_dict)
+
+        print "trans Mat >>>\n", self.transformationMatrix
+        #print "SCALE (x , y , z)>>>\n", (np.dot(self.transformationMatrix[0], self.transformationMatrix[0]), np.dot(self.transformationMatrix[1], self.transformationMatrix[1]), np.dot(self.transformationMatrix[2], self.transformationMatrix[2]))
+        #print "extr Mat >>>>\n", self.extrinsicTransformationMatrix
+
 
     def getObservationKeys(self, point_observations):
         photo_indexes = []
@@ -105,300 +285,148 @@ class ProjectMerge:
         return photo_indexes
 
 
+    def addIntrinsiscs(self, sfm_JSON, sfm_JSON_2, twinNames):
+        """ 1. Iterate over the doubled views, note the intrinsic id's  """
+        ps1_views_first_id = sfm_JSON["views"][0]["value"]["ptr_wrapper"]["id"]
+
+        ps_out_views_last_id = ps1_views_first_id + len(sfm_JSON["views"]) + len(sfm_JSON_2["views"]) - len(twinNames) - 2
+        k = 0
+        for intrinsic in sfm_JSON["intrinsics"]:
+            intrinsic["value"]["ptr_wrapper"]["id"] = ps_out_views_last_id + k
+            k += 1
+
+
+        intrinsics_last_ptr_wrapper = sfm_JSON["intrinsics"][-1]["value"]["ptr_wrapper"]["id"]
+        intrinsics_last_key = sfm_JSON["intrinsics"][-1]["key"]
+
+        k = 0
+        for intrinsic in sfm_JSON_2["intrinsics"]:
+            k += 1
+            intrinsic["value"]["ptr_wrapper"]["id"] = intrinsics_last_ptr_wrapper + k
+            intrinsic["key"] = intrinsics_last_key + k
+            if len(sfm_JSON["intrinsics"])> 0 :
+                intrinsic["value"]["polymorphic_id"] = 1
+            else:
+                intrinsic["value"]["polymorphic_id"] = 2147483649
+            sfm_JSON["intrinsics"].append(intrinsic)
+        return sfm_JSON["intrinsics"]
+
+
+
     def getRelationDict(self, twinNames):
-        """Get the twin points from project 1"""
+        """Get a dictionary showing the relation between doubled photos,  project1 --> project2"""
         pso_1_twin_keys , pso_1_twin_names = [], []
-        with open(self.pso_1.openMVGSfMJSONOutputFile) as f1:
+        with open(self.psObject1.openMVGSfMJSONOutputFile) as f1:
             views = json.load(f1)["views"]
             for view in views:
                 filename = view["value"]["ptr_wrapper"]["data"]["filename"]
                 if filename in twinNames:
                     pso_1_twin_keys.append(view["key"])
                     pso_1_twin_names.append(filename)
+            """Get the twin points from project 2"""
+            pso_2_twin_keys , pso_2_twin_names = [], []
+            with open(self.psObject2.openMVGSfMJSONOutputFile) as f2:
+                views = json.load(f2)["views"]
+                for view in views:
+                    filename = view["value"]["ptr_wrapper"]["data"]["filename"]
+                    if filename in twinNames:
+                        pso_2_twin_keys.append(view["key"])
+                        pso_2_twin_names.append(filename)
+                self.relation_dict, self.inverse_relation_dict = {}, {}
+                for i in xrange(len(pso_1_twin_names)):
+                    filename = pso_1_twin_names[i]
+                    key = pso_1_twin_keys[i]
+                    pso_2_key = pso_2_twin_keys[pso_2_twin_names.index(filename)]
+                    self.relation_dict[key] = pso_2_key
+                    self.inverse_relation_dict[pso_2_key] = key
 
-        """Get the twin points from project 2"""
-        pso_2_twin_keys , pso_2_twin_names = [], []
-        with open(self.pso_2.openMVGSfMJSONOutputFile) as f2:
-            views = json.load(f2)["views"]
-            for view in views:
-                filename = view["value"]["ptr_wrapper"]["data"]["filename"]
-                if filename in twinNames:
-                    pso_2_twin_keys.append(view["key"])
-                    pso_2_twin_names.append(filename)
-
-        relation_dict = {}
-        for i in xrange(len(pso_1_twin_names)):
-            filename = pso_1_twin_names[i]
-            key = pso_1_twin_keys[i]
-            pso_2_key = pso_2_twin_keys[pso_2_twin_names.index(filename)]
-            relation_dict[key] = pso_2_key
-        return relation_dict
-
-    def getInvertedRealtionDict(self, twinNames):
-        """Get the twin points from project 1"""
-        pso_1_twin_keys , pso_1_twin_names = [], []
-        with open(self.pso_1.openMVGSfMJSONOutputFile) as f1:
-            views = json.load(f1)["views"]
-            for view in views:
-                filename = view["value"]["ptr_wrapper"]["data"]["filename"]
-                if filename in twinNames:
-                    pso_1_twin_keys.append(view["key"])
-                    pso_1_twin_names.append(filename)
-
-        """Get the twin points from project 2"""
-        pso_2_twin_keys , pso_2_twin_names = [], []
-        with open(self.pso_2.openMVGSfMJSONOutputFile) as f2:
-            views = json.load(f2)["views"]
-            for view in views:
-                filename = view["value"]["ptr_wrapper"]["data"]["filename"]
-                if filename in twinNames:
-                    pso_2_twin_keys.append(view["key"])
-                    pso_2_twin_names.append(filename)
-
-        relation_dict = {}
-        for i in xrange(len(pso_1_twin_names)):
-            filename = pso_1_twin_names[i]
-            key = pso_1_twin_keys[i]
-            pso_2_key = pso_2_twin_keys[pso_2_twin_names.index(filename)]
-            relation_dict[pso_2_key] = key
-        return relation_dict
+                print "REALTION DICT>>>\n", self.relation_dict
+                print "INVERSE RELATION DICT>>>\n", self.inverse_relation_dict
+                return self.relation_dict
 
 
-    def getTransformationMatrix(self, relation_dict):
-        """Analyse two sfm_data files and find points that ware generated by the same set of photos.
-        Verify them by checking if they relate to the same pixeles on the 2D photos"""
-
-        """ Create a relation dict pso1_view_id -> pso2_view_id """
-        #relation_dict = self.getRelationDict(twinNames)
-        pso_1_twin_keys = relation_dict.keys()
-        pso_2_twin_keys = relation_dict.values()
-
-        observation_dict = {}
-        with open(self.pso_2.openMVGSfMJSONOutputFile) as f2:
-            structure = json.load(f2)["structure"]
-            for point in structure:
-                """ Check if the structure point was generated from twin photos """
-                views_intersection = set(pso_2_twin_keys).intersection(self.getObservationKeys(point["value"]["observations"]))
-                if len(views_intersection) >= 3:
-                    for observation in point["value"]["observations"]:
-                        if observation["key"] in views_intersection:
-                            observation_key = "%d:(%.2f,%.2f)" % (observation["key"], observation["value"]["x"][0], observation["value"]["x"][1])
-                            observation_dict[observation_key] = [point["value"]["X"], point["key"]]
-                            break
-
-            """ Iterate the spo1 points and look for points from spo2 related to them"""
-            pso_1_point_matrix = []
-            pso_2_point_matrix = []
+    def getIntrinsicTransformationDict(self, sfm_JSON, sfm_JSON_2, twinNames):
+        photo_name_intrinsic_relation_dict_1 = self.getIntrinsicRelatedPhotoNames(sfm_JSON)
+        photo_name_intrinsic_relation_dict_2 = self.getIntrinsicRelatedPhotoNames(sfm_JSON_2)
+        self.intrinsic_transformation_dict   = {}
+        self.inverse_intrinsic_transformation_dict   = {}
+        for twinName in twinNames:
+            self.intrinsic_transformation_dict[photo_name_intrinsic_relation_dict_1[twinName]] = photo_name_intrinsic_relation_dict_2[twinName]
+            self.inverse_intrinsic_transformation_dict[photo_name_intrinsic_relation_dict_1[twinName]] = photo_name_intrinsic_relation_dict_2[twinName]
+        return self.intrinsic_transformation_dict
 
 
-            limit = 100 # the maximum number of points for rotation
-            with open(self.pso_1.openMVGSfMJSONOutputFile) as f1:
-                structure = json.load(f1)["structure"]
-                for point in structure:
-                    if limit < 0: break
-                    for observation in point["value"]["observations"]:
-                        key = observation["key"]
-                        if key in pso_1_twin_keys:
-                            observation_key = "%d:(%.2f,%.2f)" % (relation_dict[key], observation["value"]["x"][0], observation["value"]["x"][1])
-                            if observation_key in observation_dict:
-                                result = observation_dict[observation_key]
-                                pso_1_point_matrix.append(point["value"]["X"]+[1])
-                                pso_2_point_matrix.append(result[0]+[1])
-
-                                limit -= 1
-                                break
-
-            transformationMatrix = np.linalg.lstsq( np.array(pso_2_point_matrix), np.array(pso_1_point_matrix) )[0]
-
-            print "TRANSFORMATION MATRIX", transformationMatrix, type(transformationMatrix)
-
-            return transformationMatrix
-
-    def getCoordinates(self, coordVect, transfromationMatrix):
-        vect = np.array(coordVect+[1])
-        outputVec = list(np.dot(np.transpose(transfromationMatrix), vect))[0:3]
-        return outputVec
-
-    #TODO
-    def getExtrinsicRotation(self, vectorRotationMatrix, translationVector, transformationMatrix):
-        #tm = transformationMatrix[:3,:3]
-        #g = np.linalg.svd(tm)[0]
-        #return np.dot(g, vectorRotationMatrix).tolist()
-
-        #g = np.linalg.svd(tm)[2]
-        #return np.dot(g, vectorRotationMatrix).tolist()
-
-        #g = np.linalg.svd(tm)[0]
-        #return np.dot(np.transpose(g), vectorRotationMatrix).tolist()
-
-        #g = np.linalg.svd(tm)[2]
-        #return np.dot(np.transpose(g), vectorRotationMatrix).tolist()
-
-        tm = np.transpose(transformationMatrix[:3,:3])
-        #g = np.linalg.svd(tm)[0]
-        #return np.dot(g, vectorRotationMatrix).tolist()
-
-        #g = np.linalg.svd(tm)[2]
-        #return np.dot(g, vectorRotationMatrix).tolist()
-        print "TUTAJ vrm\n", np.array(vectorRotationMatrix)
-        g = np.linalg.svd(tm)
-        l = np.dot(g[0], g[2])
-        return l.tolist()
-        #print "TUTUAJ g[0] * g[2]\n", l
-        #r = np.dot(g[0], np.transpose(g[2]))
-        #print "TUTAJ g[0] * T(g[2])\n", r
-        #return np.dot(r, vectorRotationMatrix).tolist()
+    def getIntrinsicRelatedViews(self, sfm_JSON):
+        """ Return a dictionary like {0:[1,2,3,4,5], 1:[6,7,8,9]}"""
+        intr_rel_dict = {} #initialize
+        for i in xrange(len(sfm_JSON["intrinsics"])):
+            intr_rel_dict[i] = []
+        for view in sfm_JSON["views"]: #increase the number of views that share this intrinsic id
+            #print view["value"]["ptr_wrapper"]["data"]["id_intrinsic"]
+            intr_rel_dict[view["value"]["ptr_wrapper"]["data"]["id_intrinsic"]].append(view["key"])
+        return intr_rel_dict
 
 
-
-    def getMaxMode(self, mode1, mode2):
-        mode2int = {"NORMAL":0, "HIGH":1, "ULTRA":2}
-        int2mode = ["NORMAL", "HIGH", "ULTRA"]
-        if mode1 in int2mode:
-            if mode2 in int2mode:
-                maxint = max(mode2int[mode1], mode2int[mode2])
-                return int2mode[maxint]
-            else:
-                self.log([mode2, "Not in available modes."])
-        else:
-            self.log([mode1, "Not in available modes"])
+    def getIntrinsicRelatedPhotoNames(self, sfm_JSON):
+        intr_rel_dict ={} #initialize
+        for view in sfm_JSON["views"]:
+            intr_rel_dict[view["value"]["ptr_wrapper"]["data"]["filename"]] = view["value"]["ptr_wrapper"]["data"]["id_intrinsic"]
+        return intr_rel_dict
 
 
-    def copyImages(self, inputUrl, outputUrl):
-        imagesList = support_functions.getImagesList(inputUrl)
-        for fileName in imagesList:
-            outputFilePath = os.path.join(outputUrl, fileName)
-            if not os.path.exists(outputFilePath):
-                shutil.copyfile(os.path.join(inputUrl, fileName), outputFilePath)
-                print "Copied photo :", outputFilePath
-
-
-    def mergeSfMFiles(self, sfm1, sfm2, outputSfM, rootPath):
-        with open(sfm1) as f1:
-            sfm_JSON = json.load(f1)
-
-            sfm_JSON["root_path"]          = rootPath
-
-            views_last_key                 = sfm_JSON["views"][-1]["key"]
-            views_last_id                  = sfm_JSON["views"][-1]["value"]["ptr_wrapper"]["id"]
-            views_last_id_intrinsic        = sfm_JSON["views"][-1]["value"]["ptr_wrapper"]["data"]["id_intrinsic"]
-            views_last_id_pose             = sfm_JSON["views"][-1]["value"]["ptr_wrapper"]["data"]["id_pose"]
-            views_last_id_view             = sfm_JSON["views"][-1]["value"]["ptr_wrapper"]["data"]["id_view"]
-
-            intrinsics_last_key            = sfm_JSON["intrinsics"][-1]["key"]
-            #intrinsics_last_polymorphic_id = sfm_JSON["intrinsics"][-1]["value"]["polymorphic_id"]
-
-            extrinsics_last_key            = sfm_JSON["extrinsics"][-1]["key"]
-
-            structure_last_key             = sfm_JSON["structure"][-1]["key"]
-
-            control_points = []
-
-            with open(sfm2) as f2:
-                twinNames = self.getTwinPhotos()
-                relation_dict = self.getRelationDict(twinNames)
-                transformationMatrix = self.getTransformationMatrix(relation_dict)
-
-                sfm_JSON_2 = json.load(f2)
-                i = 0
-                """ Change the views indexes from the second project """
-                for view in sfm_JSON_2["views"]:
-                    i += 1
-                    view["key"]                                          = views_last_key + i
-                    view["value"]["ptr_wrapper"]["id"]                   = views_last_id + i
-                    view["value"]["ptr_wrapper"]["data"]["id_intrinsic"] = views_last_id_intrinsic + view["value"]["ptr_wrapper"]["data"]["id_intrinsic"] + 1
-                    view["value"]["ptr_wrapper"]["data"]["id_pose"]      = views_last_id_pose + i
-                    view["value"]["ptr_wrapper"]["data"]["id_view"]      = views_last_id_view + i
-
-                    sfm_JSON["views"].append(view)
-
-                """ Change the intrinsic indexes from the first project """
-                k = 0
-                for intrinsic in sfm_JSON["intrinsics"]:
-                    k += 1
-                    intrinsic["value"]["ptr_wrapper"]["id"]     = views_last_id + i + k
-
-                """ Change the intrinsic indexes from the second project """
-                j = 0
-                for intrinsic in sfm_JSON_2["intrinsics"]:
-                    j += 1
-                    intrinsic["key"]                            = intrinsics_last_key + j
-                    intrinsic["value"]["ptr_wrapper"]["id"]     = views_last_id + i + k + j
-                    intrinsic["value"]["polymorphic_id"]        = 1
-
-                    sfm_JSON["intrinsics"].append(intrinsic)
-
-                """ Change the extrinsic  from the second project """
-                l = 0
-                for extrinsic in sfm_JSON_2["extrinsics"]:
-                    l += 1
-                    extrinsic["key"] = extrinsics_last_key + l
-                    #TODO
-                    #print "BEFORE :\n", extrinsic["value"]["rotation"]
-                    extrinsic["value"]["rotation"]  = self.getExtrinsicRotation(extrinsic["value"]["rotation"],extrinsic["value"]["center"], transformationMatrix)
-                    #print "ROTATION :\n", extrinsic["value"]["rotation"]
-                    #TODO
-                    extrinsic["value"]["center"]    = self.getCoordinates(extrinsic["value"]["center"], transformationMatrix)
-
-                    sfm_JSON["extrinsics"].append(extrinsic)
-
-                """ Change the structure points from the second project """
-
-                m = 0
-                for point in sfm_JSON_2["structure"]:
-                    m+=1
-                    point["key"] = structure_last_key + m
-                    point["value"]["X"] = self.getCoordinates(point["value"]["X"], transformationMatrix)
-
-                    for observation in point["value"]["observations"]:
-                        observation["key"] = views_last_id_view + observation["key"] + 1
-
-                    sfm_JSON["structure"].append(point)
-
-
-                with open(outputSfM, "w") as of:
-                    json.dump(sfm_JSON, of, indent=4)
-
-
-
-    def mergeProjects(self, project_1_url, project_2_url, output_project_url):
-        if os.path.exists(project_1_url):
-            ps_1 = ProjectStatus.ProjectStatus(project_1_url)
-            if os.path.exists(project_2_url):
-                ps_2 = ProjectStatus.ProjectStatus(project_2_url)
-                if os.path.isdir(output_project_url):
-                    mode = self.getMaxMode(ps_1.mode, ps_2.mode)
-                    if ps_1.successful and ps_2.successful:
-                        output_ps_object = ProjectStatus.ProjectStatus(output_project_url, mode)
-                        #output_ps_object.status = True
-                        output_ps_object.successful = True
-                        if ps_1.sparse_reconstruction and ps_2.sparse_reconstruction:
-                            output_ps_object.sparse_reconstruction = True
-                            self.copyImages(ps_1.inputDir, output_ps_object.inputDir)
-                            self.copyImages(ps_2.inputDir, output_ps_object.inputDir)
-                            output_ps_object.photos = ps_1.photos + ps_2.photos
-
-                            if support_functions.fileNotEmpty(ps_1.openMVGSfMOutputFile) or support_functions.fileNotEmpty(ps_2.openMVGSfMJSONOutputFile):
-                                if support_functions.fileNotEmpty(output_ps_object.openMVGSfMOutputFile):
-                                    ps_1_SfmFileUrl = ps_1.openMVGSfMOutputFile
-                                    ps_2_SfmFileUrl = ps_2.openMVGSfMOutputFile
-                                    outputSfmFileUrl = output_ps_object.openMVGSfMOutputFile
-                                else:
-                                    ps_1_SfmFileUrl  = ps_1.openMVGSfMJSONOutputFile
-                                    ps_2_SfmFileUrl  = ps_2.openMVGSfMJSONOutputFile
-                                    outputSfmFileUrl = output_ps_object.openMVGSfMJSONOutputFile
-
-                                self.mergeSfMFiles(ps_1_SfmFileUrl, ps_2_SfmFileUrl, outputSfmFileUrl, output_ps_object.inputDir)
-
-                                output_ps_object.saveCurrentStatus()
-
-                        else:
-                            self.log(["You must provide projects with computed sparse reconstruction"])
+    def getTwinNames(self):
+        """ Iterate over the twin photo names and check if the EXIF match"""
+        with open(self.psObject1.url) as f1:
+            pso_1_listing = json.load(f1)
+            with open(self.psObject2.url) as f2:
+                pso_2_listing = json.load(f2)
+                doubled_photo_names = list(set(pso_1_listing['photos']).intersection(pso_2_listing["photos"]))
+                verifiedTwinPhotoNames = []
+                twinNamesWithOtherEXIF = []
+                for photoName in doubled_photo_names:
+                    if self.verifyCameraRedundancy(os.path.join(self.psObject1.inputDir, photoName), os.path.join(self.psObject2.inputDir, photoName)):
+                        verifiedTwinPhotoNames.append(photoName)
                     else:
-                        self.log(["You must provide projects that ware successfuly initialized !!"])
-                else:
-                    self.log(["Provided output project URL doesnt exist", output_project_url])
-            else:
-                self.log(["Provided project doesnt exist :", project_2_url])
+                        twinNamesWithOtherEXIF.append(photoName)
+                return verifiedTwinPhotoNames, twinNamesWithOtherEXIF
+        return None, None
+
+
+    def verifyCameraRedundancy(self, url1, url2):
+        """Checks if photos ware made with the same camera and the same parameters"""
+        exif_keys = ['Make', 'Model', 'ExifImageWidth', 'ExifImageHeight', 'FocalLength', 'DateTime']
+        sfmDG = SfMDataGenerator.SfMDataGenerator(log = self.log)
+        exif_1 = sfmDG.getExifDict(url1, exif_keys)
+        exif_2 = sfmDG.getExifDict(url2, exif_keys)
+        if exif_1 == exif_2:
+            return True
+        return False
+
+
+    def getMode(self, psObject1, psObject2):
+        """Chooses the mode from the project containing more photos"""
+        if len(psObject1.photos) >= len(psObject2.photos):
+            return psObject1.mode
         else:
-            self.log(["Provided project doesnt exist :", project_1_url])
+            return psObject2.mode
+
+    def getSfmUrls(self):
+        if support_functions.fileNotEmpty(self.psObjectOut.openMVGSfMOutputFile):
+            psObject1_SfmUrl = self.psObject1.openMVGSfMOutputFile
+            psObject2_SfmUrl = self.psObject2.openMVGSfMOutputFile
+            outputSfmFileUrl = self.psObjectOut.openMVGSfMOutputFile
+        else:
+            psObject1_SfmUrl = self.psObject1.openMVGSfMJSONOutputFile
+            psObject2_SfmUrl = self.psObject2.openMVGSfMJSONOutputFile
+            outputSfmFileUrl = self.psObjectOut.openMVGSfMJSONOutputFile
+        return psObject1_SfmUrl, psObject2_SfmUrl, outputSfmFileUrl
+
+if __name__ =="__main__":
+    url_out = "/home/array/Dokumenty/Gritworld/Incremental3DRecon/GritRena/test/data/projectMerge/Mirow/merged"
+    pso1 = ProjectStatus.ProjectStatus("/home/array/Dokumenty/Gritworld/Incremental3DRecon/GritRena/test/data/projectMerge/Mirow/part1/output/projectStatus.json")
+    pso2 = ProjectStatus.ProjectStatus("/home/array/Dokumenty/Gritworld/Incremental3DRecon/GritRena/test/data/projectMerge/Mirow/part2/output/projectStatus.json")
+    #url_out = "/home/array/Dokumenty/Gritworld/Incremental3DRecon/GritRena/test/data/projectMerge/merged"
+    #pso1 = ProjectStatus.ProjectStatus("/home/array/Dokumenty/Gritworld/Incremental3DRecon/GritRena/test/data/projectMerge/part1/output/projectStatus.json")
+    #pso2 = ProjectStatus.ProjectStatus("/home/array/Dokumenty/Gritworld/Incremental3DRecon/GritRena/test/data/projectMerge/part2/output/projectStatus.json")
+    pm = ProjectMerge(pso1, pso2, url_out)
+    pm.mergeProjects(mode="NORMAL")

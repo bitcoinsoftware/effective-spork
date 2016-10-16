@@ -11,7 +11,7 @@ from PIL.ExifTags import TAGS
 
 class SfMDataGenerator:
     startId = 2147483649
-    def __init__(self, projectStatus, log = None):
+    def __init__(self, projectStatus = None, log = None):
         self.projectStatus = projectStatus
         self.log = log
         #['ExifImageWidth', 'ExifImageHeight', 'Make', 'Model', 'ExifImageWidth', 'ExifImageHeight', 'FocalLength']
@@ -30,6 +30,8 @@ class SfMDataGenerator:
                     exifDict[tag] = v
             if set(exifDict.keys()) == set(exifTags):
                 return exifDict
+        else:
+            self.log([imageUrl, " does not exist!"])
         return None
 
 

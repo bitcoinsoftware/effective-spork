@@ -37,83 +37,83 @@ class ProjectStatus:
     mveTextureOutputFileName            = "textured_clean_surface.obj"
 
     def __init__(self, inputPath, precisionMode = "NORMAL"):
-        self.logMessageList             = []
-        if os.path.isdir(inputPath): #if we are opening a new project
-            print "CREATING NEW PROJECT"
-            self.inputDir               = inputPath
-            self.outputDir              = os.path.join(inputPath, 'output')
-            if not os.path.exists(self.outputDir):
-                os.mkdir(self.outputDir)
-            self.url                    = os.path.join(self.outputDir, self.projectStatusFileName)
-            self.backupUrl              = os.path.join(self.outputDir, self.projectStatusBackupFileName)
-            self.successful             = False
-            self.sparse_reconstruction  = False
-            self.dense_reconstruction   = False
-            self.textured_reconstruction= False
-            self.mode                   = precisionMode
-            self.photos                 = []
-            self.wrong_photos           = []
-            self.automatic_photo_source = None
-            self.roi_scale              = False
-            with open(self.url, 'w') as f:
-                json.dump(
-                    {'status':self.successful, 'mode':self.mode, 'photos':self.photos, 'wrong_photos':[],
-                     'sparse_reconstruction':self.sparse_reconstruction, 'dense_reconstruction':self.dense_reconstruction, 'textured_reconstruction':self.textured_reconstruction,
-                     'new_photos_matching_number': self.newPhotosMatchingNumber, 'automatic_photo_source' : None, 'roi_scale':None},
-                    f, sort_keys = True, indent = 4)
+        #self.logMessageList             = []
+        if os.path.exists(inputPath):
+            if os.path.isdir(inputPath): #if we are opening a new project
+                print "CREATING NEW PROJECT"
+                self.inputDir               = inputPath
+                self.outputDir              = os.path.join(inputPath, 'output')
+                if not os.path.exists(self.outputDir):
+                    os.mkdir(self.outputDir)
+                self.url                    = os.path.join(self.outputDir, self.projectStatusFileName)
+                self.backupUrl              = os.path.join(self.outputDir, self.projectStatusBackupFileName)
+                self.successful             = False
+                self.sparse_reconstruction  = False
+                self.dense_reconstruction   = False
+                self.textured_reconstruction= False
+                self.mode                   = precisionMode
+                self.photos                 = []
+                self.wrong_photos           = []
+                self.automatic_photo_source = None
+                self.roi_scale              = False
+                with open(self.url, 'w') as f:
+                    json.dump(
+                        {'status':self.successful, 'mode':self.mode, 'photos':self.photos, 'wrong_photos':[],
+                         'sparse_reconstruction':self.sparse_reconstruction, 'dense_reconstruction':self.dense_reconstruction, 'textured_reconstruction':self.textured_reconstruction,
+                         'new_photos_matching_number': self.newPhotosMatchingNumber, 'automatic_photo_source' : None, 'roi_scale':None},
+                        f, sort_keys = True, indent = 4)
 
-        elif os.path.isfile(inputPath): #if we are loading an old project
-            print "LOADING PROJECT"
-            self.url                = inputPath
-            self.outputDir          = os.path.dirname(inputPath)
-            self.backupUrl = os.path.join(self.outputDir, self.projectStatusBackupFileName)
-            self.inputDir           = os.path.join(self.outputDir, '..')
-            self.loadStatus()
+            elif os.path.isfile(inputPath): #if we are loading an old project
+                print "LOADING PROJECT"
+                self.url                = inputPath
+                self.outputDir          = os.path.dirname(inputPath)
+                self.backupUrl = os.path.join(self.outputDir, self.projectStatusBackupFileName)
+                self.inputDir           = os.path.join(self.outputDir, '..')
+                self.loadStatus()
 
-        #self.scriptDir                          = os.path.abspath(os.path.dirname(__name__))
-        #self.scriptDir                          = os.path.abspath(os.path.dirname(sys.argv[0]))
-        self.scriptDir                          = os.path.dirname(inspect.getfile(inspect.currentframe()))
-        self.openMVGSensorWidthFile             = os.path.join(self.scriptDir,          self.openMVGSensorWidthFileName)
+            self.scriptDir                          = os.path.dirname(inspect.getfile(inspect.currentframe()))
+            self.openMVGSensorWidthFile             = os.path.join(self.scriptDir,          self.openMVGSensorWidthFileName)
+            self.featuresDir                        = os.path.join(self.outputDir,          self.featuresFolderName)
+            self.matchesDir                         = os.path.join(self.outputDir,          self.matchesFolderName)
+            self.matchesBackupDir                   = os.path.join(self.outputDir,          self.matchesBackupFolderName)
+            self.incrMatchesDir                     = os.path.join(self.outputDir,          self.incrMatchesFolderName)
+            self.reconstructionDir                  = os.path.join(self.outputDir,          self.reconstructionFolderName)
+            self.matchesFile                        = os.path.join(self.matchesDir,         self.openMVGMatchesFileName)
+            self.geoMatchesFile                     = os.path.join(self.matchesDir,         self.openMVGGeoMatchesFileName)
+            self.namedGeoMatchesFile                = os.path.join(self.matchesDir,         self.openMVGNamedGeoMatchesFileName)
+            self.imageListingFile                   = os.path.join(self.featuresDir,        self.openMVGListingFileName)
+            self.imageListingBackupFile             = os.path.join(self.featuresDir,        self.openMVGListingBackupFileName)
+            self.incrImageListingFile               = os.path.join(self.incrMatchesDir,     self.openMVGListingFileName)
+            self.incrPairListFile                   = os.path.join(self.incrMatchesDir,     self.openMVGPairListFileName)
+            self.incrMatchesFile                    = os.path.join(self.incrMatchesDir,     self.openMVGMatchesFileName)
+            self.incrGeoMatchesFile                 = os.path.join(self.incrMatchesDir,     self.openMVGGeoMatchesFileName)
+            self.openMVGSfMOutputFile               = os.path.join(self.reconstructionDir,  self.openMVGSfMOutputFileName)
+            self.openMVGSfMJSONOutputFile           = os.path.join(self.reconstructionDir,  self.openMVGSfMJSONOutputFileName)
+            self.openMVGSfMColorizedOutputFile      = os.path.join(self.reconstructionDir,  self.openMVGSfMColorizedOutputFileName)
+            self.openMVGSfMInitialStructureFile     = os.path.join(self.reconstructionDir,  self.openMVGSfMInitialStructureFileName)
+            self.openMVGSfMRotationGraphFile        = os.path.join(self.reconstructionDir,  self.openMVGRotationGraphFileName)
+            self.mveDir                             = os.path.join(self.reconstructionDir,  self.mveFolderName)
+            self.mveViewsDir                        = os.path.join(self.mveDir,             self.mveViewsFolderName)
+            self.mveMainFile                        = os.path.join(self.mveDir,             self.mveMainFileName)
+            self.mveScene2PsetOutputFile            = os.path.join(self.reconstructionDir,  self.mveScene2PsetOutputFileName)
+            self.mvePsetCleanOutputFile             = os.path.join(self.reconstructionDir,  self.mvePsetCleanOutputFileName)
+            self.mveFSSReconOutputFile              = os.path.join(self.reconstructionDir,  self.mveFSSReconOutputFileName)
+            self.mveMeshCleanOutputFile             = os.path.join(self.reconstructionDir,  self.mveMeshCleanOutputFileName)
+            self.mveTextureOutputFile               = os.path.join(self.reconstructionDir,  self.mveTextureOutputFileName)
+            self.mveTextureOutputFileNoExtension    = os.path.join(self.reconstructionDir,  self.mveTextureOutputFileNameNoExtension)
 
-        self.featuresDir                        = os.path.join(self.outputDir,          self.featuresFolderName)
-        self.matchesDir                         = os.path.join(self.outputDir,          self.matchesFolderName)
-        self.matchesBackupDir                   = os.path.join(self.outputDir,          self.matchesBackupFolderName)
-        self.incrMatchesDir                     = os.path.join(self.outputDir,          self.incrMatchesFolderName)
-        self.reconstructionDir                  = os.path.join(self.outputDir,          self.reconstructionFolderName)
-        self.matchesFile                        = os.path.join(self.matchesDir,         self.openMVGMatchesFileName)
-        self.geoMatchesFile                     = os.path.join(self.matchesDir,         self.openMVGGeoMatchesFileName)
-        self.namedGeoMatchesFile                = os.path.join(self.matchesDir,         self.openMVGNamedGeoMatchesFileName)
-        self.imageListingFile                   = os.path.join(self.featuresDir,        self.openMVGListingFileName)
-        self.imageListingBackupFile             = os.path.join(self.featuresDir,        self.openMVGListingBackupFileName)
-        self.incrImageListingFile               = os.path.join(self.incrMatchesDir,     self.openMVGListingFileName)
-        self.incrPairListFile                   = os.path.join(self.incrMatchesDir,     self.openMVGPairListFileName)
-        self.incrMatchesFile                    = os.path.join(self.incrMatchesDir,     self.openMVGMatchesFileName)
-        self.incrGeoMatchesFile                 = os.path.join(self.incrMatchesDir,     self.openMVGGeoMatchesFileName)
-        self.openMVGSfMOutputFile               = os.path.join(self.reconstructionDir,  self.openMVGSfMOutputFileName)
-        self.openMVGSfMJSONOutputFile           = os.path.join(self.reconstructionDir,  self.openMVGSfMJSONOutputFileName)
-        self.openMVGSfMColorizedOutputFile      = os.path.join(self.reconstructionDir,  self.openMVGSfMColorizedOutputFileName)
-        self.openMVGSfMInitialStructureFile     = os.path.join(self.reconstructionDir,  self.openMVGSfMInitialStructureFileName)
-        self.openMVGSfMRotationGraphFile        = os.path.join(self.reconstructionDir,  self.openMVGRotationGraphFileName)
-        self.mveDir                             = os.path.join(self.reconstructionDir,  self.mveFolderName)
-        self.mveViewsDir                        = os.path.join(self.mveDir,             self.mveViewsFolderName)
-        self.mveMainFile                        = os.path.join(self.mveDir,             self.mveMainFileName)
-        self.mveScene2PsetOutputFile            = os.path.join(self.reconstructionDir,  self.mveScene2PsetOutputFileName)
-        self.mvePsetCleanOutputFile             = os.path.join(self.reconstructionDir,  self.mvePsetCleanOutputFileName)
-        self.mveFSSReconOutputFile              = os.path.join(self.reconstructionDir,  self.mveFSSReconOutputFileName)
-        self.mveMeshCleanOutputFile             = os.path.join(self.reconstructionDir,  self.mveMeshCleanOutputFileName)
-        self.mveTextureOutputFile               = os.path.join(self.reconstructionDir,  self.mveTextureOutputFileName)
-        self.mveTextureOutputFileNoExtension    = os.path.join(self.reconstructionDir,  self.mveTextureOutputFileNameNoExtension)
-
-        if not os.path.exists(self.featuresDir):
-            os.mkdir(self.featuresDir)
-        if not os.path.exists(self.matchesDir):
-            os.mkdir(self.matchesDir)
-        if not os.path.exists(self.incrMatchesDir):
-            os.mkdir(self.incrMatchesDir)
-        if not os.path.exists(self.reconstructionDir):
-            os.mkdir(self.reconstructionDir)
-        if not os.path.exists(self.mveDir):
-            os.mkdir(self.mveDir)
+            if not os.path.exists(self.featuresDir):
+                os.mkdir(self.featuresDir)
+            if not os.path.exists(self.matchesDir):
+                os.mkdir(self.matchesDir)
+            if not os.path.exists(self.incrMatchesDir):
+                os.mkdir(self.incrMatchesDir)
+            if not os.path.exists(self.reconstructionDir):
+                os.mkdir(self.reconstructionDir)
+            if not os.path.exists(self.mveDir):
+                os.mkdir(self.mveDir)
+        else:
+            print "Path %s doesn't exists!" % inputPath
 
     def getPaths(self):
         return self.inputDir, self.outputDir, self.featuresDir, self.matchesDir, self.incrMatchesDir, self.reconstructionDir

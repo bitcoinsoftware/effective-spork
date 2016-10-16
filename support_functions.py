@@ -1,6 +1,8 @@
 import glob
 import os
 import shutil
+import string
+import random
 from PyQt4 import QtCore, QtGui
 
 
@@ -16,6 +18,23 @@ def getImagesList(folderUrl):
     photoNameList += glob.glob1(folderUrl, '*.jpeg') + glob.glob1(folderUrl, '*.JPEG') + glob.glob1(folderUrl,'*.PNG')
     photoNameList.sort()
     return photoNameList
+
+def modifyFileName(fileName):
+    prefix, extension = fileName.split('.')
+    prefix += ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(5))
+    return '.'.join(prefix, extension)
+
+def copyImages(inputDir, outputDir, dont_copy = [], change_name_dict = {}):
+    imagesList = getImagesList(inputDir)
+    for fileName in imagesList:
+        if fileName not in dont_copy:
+            if fileName in change_name_dict.keys():
+                fileName = change_name_dict[fileName]
+            outputFilePath = os.path.join(outputDir, fileName)
+            if not os.path.exists(outputFilePath):
+                shutil.copyfile(os.path.join(inputDir, fileName), outputFilePath)
+                print "Copied photo :", outputFilePath
+
 
 def insertPhotosInListWidgets(mainWindow, inputDir, goodPhotoNamesList=[], wrongPhotoNamesList=[], newPhotosList=[], recentlyMatchedPhotosList=[]):
     mainWindow.menubar.setEnabled(True)

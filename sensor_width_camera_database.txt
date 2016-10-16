@@ -1,5 +1,6 @@
 other;6.16
 FC300X;6.16
+Bebop Drone;6.16
 Acer CL-5300;5.75
 Acer CS-5531;5.75
 Acer CP-8531;7.11

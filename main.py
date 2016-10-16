@@ -7,6 +7,7 @@ from PhotogrammetryThread import PhotogrammetryThread
 from AutomaticPhotoSourceThread import AutomaticPhotoSourceThread
 import support_functions
 import ProjectStatus
+import ProjectMerge
 
 class UserInterface:
     def __init__(self, ui, MainWindow):
@@ -77,8 +78,7 @@ class UserInterface:
 
     def initializeProject(self, initializationType ='fromLocalPhotos'):
         if self.projectStatus is not None and self.projectStatus.successful:
-            choice = QtGui.QMessageBox.question(self.mainWindow, 'Warning!', "Project is allready initialized, do you want to overwrite it?",
-                                       QtGui.QMessageBox.Yes| QtGui.QMessageBox.No)
+            choice = QtGui.QMessageBox.question(self.mainWindow, 'Warning!', "Project is allready initialized, do you want to overwrite it?", QtGui.QMessageBox.Yes| QtGui.QMessageBox.No)
             if choice == QtGui.QMessageBox.Yes:
                 self.projectStatus.successful = False
                 self.initializeProject()
@@ -192,6 +192,26 @@ class UserInterface:
             self.ui.label_3.setText("New images :")
         else:
             QtGui.QMessageBox.question(self.mainWindow, 'Warning!', "Please compute the dense reconstruction first", QtGui.QMessageBox.Ok)
+
+
+    def mergeMeshes(self):
+        if self.projectStatus is not None and self.projectStatus.sparse_reconstruction:
+            self.log(["Merge projects"])
+            pr2_url = str(QtGui.QFileDialog.getOpenFileName(caption="Select projectStatus.json file of the project you want to merge", filter=("projectStatus.json")))
+            if pr2_url:
+                self.projectStatus2 = ProjectStatus.ProjectStatus(pr2_url)
+                if self.projectStatus2.sparse_reconstruction:
+                    out_dir = str(QtGui.QFileDialog.getExistingDirectory(caption="Select output folder for the merged project"))
+                    pm = ProjectMerge.ProjectMerge(self.projectStatus, self.projectStatus2, out_dir, log = self.log)
+                    pm.mergeProjects()
+                    self.loadProject(pm.psObjectOut.url) #close this project and load the output project
+            #self.ui.menubar.setEnabled(False)
+            #self.pg = PhotogrammetryThread('texture', self.projectStatus, self.ui)
+
+
+        else:
+            QtGui.QMessageBox.question(self.mainWindow, 'Warning!', "Please compute the dense reconstruction first",QtGui.QMessageBox.Ok)
+
 
     def findWeakNodes(self):
         if self.projectStatus is not None and self.projectStatus.successful:
@@ -343,6 +363,7 @@ if __name__ == "__main__":
     #QtCore.QObject.connect(ui.actionHigh_Precision,                 QtCore.SIGNAL('triggered()'), partial(userInt.computeFinalReconstruction, 3))
     #QtCore.QObject.connect(ui.actionMedium_Precision,               QtCore.SIGNAL('triggered()'), partial(userInt.computeFinalReconstruction, 4))
     #QtCore.QObject.connect(ui.actionLow_Precision,                  QtCore.SIGNAL('triggered()'), partial(userInt.computeFinalReconstruction, 5))
+    #QtCore.QObject.connect(ui.actionMerge_sparse_reconstruction,    QtCore.SIGNAL('triggered()'), userInt.mergeSparseReconstruction)
 
     QtCore.QObject.connect(ui.actionTexture_final_reconstruction,   QtCore.SIGNAL('triggered()'), userInt.computeTexturedReconstruction)
 
