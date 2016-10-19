@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'mainWindow.ui'
 #
-# Created: Sun Oct 16 12:27:09 2016
+# Created: Mon Oct 17 05:55:50 2016
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -500,8 +500,6 @@ class Ui_MainWindow(object):
         self.menuInitialize_project.setObjectName(_fromUtf8("menuInitialize_project"))
         self.menuAutomatic_photo_source = QtGui.QMenu(self.menuTools)
         self.menuAutomatic_photo_source.setObjectName(_fromUtf8("menuAutomatic_photo_source"))
-        self.menuMerge_projects = QtGui.QMenu(self.menuTools)
-        self.menuMerge_projects.setObjectName(_fromUtf8("menuMerge_projects"))
         self.menuHelp = QtGui.QMenu(self.menubar)
         self.menuHelp.setObjectName(_fromUtf8("menuHelp"))
         MainWindow.setMenuBar(self.menubar)
@@ -598,6 +596,8 @@ class Ui_MainWindow(object):
         self.actionMeshing_2.setObjectName(_fromUtf8("actionMeshing_2"))
         self.actionTexturing = QtGui.QAction(MainWindow)
         self.actionTexturing.setObjectName(_fromUtf8("actionTexturing"))
+        self.actionMerge_projects = QtGui.QAction(MainWindow)
+        self.actionMerge_projects.setObjectName(_fromUtf8("actionMerge_projects"))
         self.menuNew_project.addAction(self.actionNormal_precision)
         self.menuNew_project.addAction(self.actionHigh_precision)
         self.menuNew_project.addAction(self.actionUltra_precision)
@@ -617,11 +617,6 @@ class Ui_MainWindow(object):
         self.menuInitialize_project.addAction(self.actionInitialize_with_remote_stored_photos)
         self.menuAutomatic_photo_source.addAction(self.actionStart)
         self.menuAutomatic_photo_source.addAction(self.actionStop)
-        self.menuMerge_projects.addAction(self.actionMerge_sparse_reconstruction)
-        self.menuMerge_projects.addAction(self.actionMerge_dense_point_clouds_Meshing)
-        self.menuMerge_projects.addAction(self.actionMerge_dense_point_clouds)
-        self.menuMerge_projects.addAction(self.actionMeshing_2)
-        self.menuMerge_projects.addAction(self.actionTexturing)
         self.menuTools.addAction(self.actionRefresh)
         self.menuTools.addAction(self.menuInitialize_project.menuAction())
         self.menuTools.addAction(self.menuAppend_new_photos.menuAction())
@@ -630,7 +625,7 @@ class Ui_MainWindow(object):
         self.menuTools.addAction(self.menuCompute_final_reconstruction.menuAction())
         self.menuTools.addAction(self.actionTexture_final_reconstruction)
         self.menuTools.addSeparator()
-        self.menuTools.addAction(self.menuMerge_projects.menuAction())
+        self.menuTools.addAction(self.actionMerge_projects)
         self.menuTools.addSeparator()
         self.menuTools.addAction(self.actionFind_weak_nodes_2)
         self.menuTools.addAction(self.actionView_the_matching_graph)
@@ -662,7 +657,6 @@ class Ui_MainWindow(object):
         self.menuAppend_new_photos.setTitle(_translate("MainWindow", "Append new photos", None))
         self.menuInitialize_project.setTitle(_translate("MainWindow", "Initialize project", None))
         self.menuAutomatic_photo_source.setTitle(_translate("MainWindow", "Automatic photo source", None))
-        self.menuMerge_projects.setTitle(_translate("MainWindow", "Merge projects", None))
         self.menuHelp.setTitle(_translate("MainWindow", "Help", None))
         self.actionLoad_project.setText(_translate("MainWindow", "Load project", None))
         self.actionCompute_sparse_reconstruction.setText(_translate("MainWindow", "Compute sparse reconstruction", None))
@@ -709,4 +703,5 @@ class Ui_MainWindow(object):
         self.actionTexture.setText(_translate("MainWindow", "Texture", None))
         self.actionMeshing_2.setText(_translate("MainWindow", "Meshing", None))
         self.actionTexturing.setText(_translate("MainWindow", "Texturing", None))
+        self.actionMerge_projects.setText(_translate("MainWindow", "Merge projects", None))
 

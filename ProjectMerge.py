@@ -28,16 +28,24 @@ class ProjectMerge:
                     self.psObjectOut.sparse_reconstruction = True
                     #TODO
                     twinNames, twinNamesWithOtherEXIF = self.getTwinNames()
-                    name_trans_dict = self.getPhotoNameTransformationDict(twinNamesWithOtherEXIF)
-                    support_functions.copyImages(self.psObject1.inputDir, self.psObjectOut.inputDir)
-                    support_functions.copyImages(self.psObject2.inputDir, self.psObjectOut.inputDir, dont_copy = twinNames, change_name_dict = name_trans_dict)
+                    if len(twinNames) >= 3:
+                        name_trans_dict = self.getPhotoNameTransformationDict(twinNamesWithOtherEXIF)
+                        support_functions.copyImages(self.psObject1.inputDir, self.psObjectOut.inputDir)
+                        support_functions.copyImages(self.psObject2.inputDir, self.psObjectOut.inputDir, dont_copy = twinNames, change_name_dict = name_trans_dict)
 
-                    self.psObjectOut.photos = support_functions.getImagesList(self.outputDirUrl) #list(set(self.psObject1.photos + self.psObject2.photos))
+                        self.psObjectOut.photos = support_functions.getImagesList(self.outputDirUrl) #list(set(self.psObject1.photos + self.psObject2.photos))
 
-                    if support_functions.fileNotEmpty(self.psObject1.openMVGSfMOutputFile) or support_functions.fileNotEmpty(self.psObject2.openMVGSfMJSONOutputFile):
-                        psObject1_SfmUrl, psObject2_SfmUrl, outputSfmFileUrl = self.getSfmUrls()
-                        self.mergeSfMFiles(psObject1_SfmUrl, psObject2_SfmUrl, outputSfmFileUrl, self.outputDirUrl , name_trans_dict)
-                        self.psObjectOut.saveCurrentStatus()
+                        if support_functions.fileNotEmpty(self.psObject1.openMVGSfMOutputFile) or support_functions.fileNotEmpty(self.psObject2.openMVGSfMJSONOutputFile):
+                            psObject1_SfmUrl, psObject2_SfmUrl, outputSfmFileUrl = self.getSfmUrls()
+                            self.mergeSfMFiles(psObject1_SfmUrl, psObject2_SfmUrl, outputSfmFileUrl, self.outputDirUrl , name_trans_dict)
+                            self.psObjectOut.successful = False #it is a merged project so incremetal photogrammetry is not allowed
+                            self.psObjectOut.sparse_reconstruction = True #but allow to compute the dense reconstruction
+                            self.psObjectOut.saveCurrentStatus()
+                        else:
+                            self.log(["Could not save the project"])
+                    #TODO: try to merge the project by computing features and doing the matching
+                    else:
+                        self.log(["mergeWarning"])  # popup with a warning that projects contain less identical photos than 3
                 else:
                     self.log(["You must provide projects with computed sparse reconstruction"])
             else:
@@ -71,7 +79,6 @@ class ProjectMerge:
                 self.computeTransformations(sfm_JSON, sfm_JSON_2)
 
                 sfm_JSON_out["structure"]   = self.getMergedStructure(sfm_JSON, sfm_JSON_2)
-                #sfm_JSON_out["structure"] = sfm_JSON["structure"]
                 sfm_JSON_out["extrinsics"]  = self.getMergedExtrinsics(sfm_JSON, sfm_JSON_2)
                 self.removeOrphanedIntrinsics(sfm_JSON_out)
                 with open(outputSfmFileUrl, "w") as of:

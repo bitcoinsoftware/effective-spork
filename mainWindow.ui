@@ -1455,16 +1455,6 @@
      <addaction name="actionStart"/>
      <addaction name="actionStop"/>
     </widget>
-    <widget class="QMenu" name="menuMerge_projects">
-     <property name="title">
-      <string>Merge projects</string>
-     </property>
-     <addaction name="actionMerge_sparse_reconstruction"/>
-     <addaction name="actionMerge_dense_point_clouds_Meshing"/>
-     <addaction name="actionMerge_dense_point_clouds"/>
-     <addaction name="actionMeshing_2"/>
-     <addaction name="actionTexturing"/>
-    </widget>
     <addaction name="actionRefresh"/>
     <addaction name="menuInitialize_project"/>
     <addaction name="menuAppend_new_photos"/>
@@ -1473,7 +1463,7 @@
     <addaction name="menuCompute_final_reconstruction"/>
     <addaction name="actionTexture_final_reconstruction"/>
     <addaction name="separator"/>
-    <addaction name="menuMerge_projects"/>
+    <addaction name="actionMerge_projects"/>
     <addaction name="separator"/>
     <addaction name="actionFind_weak_nodes_2"/>
     <addaction name="actionView_the_matching_graph"/>
@@ -1718,6 +1708,11 @@
   <action name="actionTexturing">
    <property name="text">
     <string>Texturing</string>
+   </property>
+  </action>
+  <action name="actionMerge_projects">
+   <property name="text">
+    <string>Merge projects</string>
    </property>
   </action>
  </widget>

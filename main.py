@@ -124,7 +124,7 @@ class UserInterface:
             self.ui.label_3.setText("New images :")
         else:
             QtGui.QMessageBox.question(self.mainWindow, 'Warning!',
-                                       "Unable to compute the sparse reconstruction from the provided data. Please add more photos and initialize the project first",
+                                       "Unable to compute the sparse reconstruction. Please initialize the project first",
                                        QtGui.QMessageBox.Ok)
 
 
@@ -194,7 +194,7 @@ class UserInterface:
             QtGui.QMessageBox.question(self.mainWindow, 'Warning!', "Please compute the dense reconstruction first", QtGui.QMessageBox.Ok)
 
 
-    def mergeMeshes(self):
+    def mergeProjects(self):
         if self.projectStatus is not None and self.projectStatus.sparse_reconstruction:
             self.log(["Merge projects"])
             pr2_url = str(QtGui.QFileDialog.getOpenFileName(caption="Select projectStatus.json file of the project you want to merge", filter=("projectStatus.json")))
@@ -203,12 +203,10 @@ class UserInterface:
                 if self.projectStatus2.sparse_reconstruction:
                     out_dir = str(QtGui.QFileDialog.getExistingDirectory(caption="Select output folder for the merged project"))
                     pm = ProjectMerge.ProjectMerge(self.projectStatus, self.projectStatus2, out_dir, log = self.log)
+                    self.ui.menubar.setEnabled(False)
                     pm.mergeProjects()
                     self.loadProject(pm.psObjectOut.url) #close this project and load the output project
-            #self.ui.menubar.setEnabled(False)
-            #self.pg = PhotogrammetryThread('texture', self.projectStatus, self.ui)
-
-
+                    self.ui.menubar.setEnabled(True)
         else:
             QtGui.QMessageBox.question(self.mainWindow, 'Warning!', "Please compute the dense reconstruction first",QtGui.QMessageBox.Ok)
 
@@ -280,6 +278,8 @@ class UserInterface:
             elif txt == "connectionError":
                 QtGui.QMessageBox.question(self.mainWindow, 'Warning!',"Unable to communicate with the photo source. Please chceck if the provided path is proper and check the connection.", QtGui.QMessageBox.Ok)
                 self.aps = None
+            elif txt == "mergeWarning":
+                QtGui.QMessageBox.question(self.mainWindow, 'Warning!', "Unable to merge to this project. No identical photos found. Projects must contain at least 3 identical photos to be merged", QtGui.QMessageBox.Ok)
             elif txt == 'fromAutomaticPhotoSource':
                 self.runAutomaticPhotoSource()
             elif txt == 'displayIncrementedGraph':
@@ -359,11 +359,7 @@ if __name__ == "__main__":
     QtCore.QObject.connect(ui.actionPoint_cloud_densification_Meshing,      QtCore.SIGNAL('triggered()'), userInt.computeFinalReconstruction)
     QtCore.QObject.connect(ui.actionPoint_cloud_densification,      QtCore.SIGNAL('triggered()'), userInt.computePointCloudDensification)
     QtCore.QObject.connect(ui.actionMeshing,                        QtCore.SIGNAL('triggered()'), userInt.computeMeshing)
-    #QtCore.QObject.connect(ui.actionVery_High,                      QtCore.SIGNAL('triggered()'), partial(userInt.computeFinalReconstruction, 2))
-    #QtCore.QObject.connect(ui.actionHigh_Precision,                 QtCore.SIGNAL('triggered()'), partial(userInt.computeFinalReconstruction, 3))
-    #QtCore.QObject.connect(ui.actionMedium_Precision,               QtCore.SIGNAL('triggered()'), partial(userInt.computeFinalReconstruction, 4))
-    #QtCore.QObject.connect(ui.actionLow_Precision,                  QtCore.SIGNAL('triggered()'), partial(userInt.computeFinalReconstruction, 5))
-    #QtCore.QObject.connect(ui.actionMerge_sparse_reconstruction,    QtCore.SIGNAL('triggered()'), userInt.mergeSparseReconstruction)
+    QtCore.QObject.connect(ui.actionMerge_projects,                 QtCore.SIGNAL('triggered()'), userInt.mergeProjects)
 
     QtCore.QObject.connect(ui.actionTexture_final_reconstruction,   QtCore.SIGNAL('triggered()'), userInt.computeTexturedReconstruction)
 
