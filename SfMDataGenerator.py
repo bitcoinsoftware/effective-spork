@@ -14,7 +14,6 @@ class SfMDataGenerator:
     def __init__(self, projectStatus = None, log = None):
         self.projectStatus = projectStatus
         self.log = log
-        #['ExifImageWidth', 'ExifImageHeight', 'Make', 'Model', 'ExifImageWidth', 'ExifImageHeight', 'FocalLength']
 
     # TODO add a option for generating SfMData when ther's no EXIF data
     def getExifDict(self, imageUrl, exifTags = ['ExifImageWidth', 'ExifImageHeight', 'Make', 'Model', 'ExifImageWidth', 'ExifImageHeight', 'FocalLength']):
@@ -33,7 +32,6 @@ class SfMDataGenerator:
         else:
             self.log([imageUrl, " does not exist!"])
         return None
-
 
     def getSfMData(self):
         sfmData     = OrderedDict()
@@ -82,7 +80,6 @@ class SfMDataGenerator:
         with open(self.projectStatus.imageListingFile, 'w') as f:
             f.write(json.dumps(sfmData, indent=4))
         return sfmData
-
 
     def getIntrinsic(self, exifDict, photosNumber, key):
         #focal = std::max ( width, height ) * exifReader->getFocal() / ccdw;

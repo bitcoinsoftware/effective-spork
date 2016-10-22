@@ -163,7 +163,7 @@ class Photogrammetry:
                     self.run_scene2pset([self.projectStatusObject.mveDir, "-pcsn", "-F"+str(scale), self.projectStatusObject.mveScene2PsetOutputFile])
                     if support_functions.fileNotEmpty(self.projectStatusObject.mveScene2PsetOutputFile):
                         self.log(["Clean the point set"])
-                        self.run_meshclean(["--threshold=0.99", "--component-size=0", "--no-clean", self.projectStatusObject.mveScene2PsetOutputFile, self.projectStatusObject.mvePsetCleanOutputFile])
+                        self.run_meshclean(["--threshold=0.1", "--component-size=0", "--no-clean", self.projectStatusObject.mveScene2PsetOutputFile, self.projectStatusObject.mvePsetCleanOutputFile])
                         return True
 
     """Generate the mesh from point cloud """

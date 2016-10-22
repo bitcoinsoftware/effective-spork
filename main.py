@@ -1,8 +1,12 @@
 from gui import *
 from PyQt4 import QtCore, QtGui
+#from vtk.qt4.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
+#import vtk
 from functools import partial
 import subprocess
 import os
+
+
 from PhotogrammetryThread import PhotogrammetryThread
 from AutomaticPhotoSourceThread import AutomaticPhotoSourceThread
 import support_functions
@@ -202,11 +206,11 @@ class UserInterface:
                 self.projectStatus2 = ProjectStatus.ProjectStatus(pr2_url)
                 if self.projectStatus2.sparse_reconstruction:
                     out_dir = str(QtGui.QFileDialog.getExistingDirectory(caption="Select output folder for the merged project"))
-                    pm = ProjectMerge.ProjectMerge(self.projectStatus, self.projectStatus2, out_dir, log = self.log)
                     self.ui.menubar.setEnabled(False)
-                    pm.mergeProjects()
-                    self.loadProject(pm.psObjectOut.url) #close this project and load the output project
-                    self.ui.menubar.setEnabled(True)
+                    self.pg = PhotogrammetryThread('merge', self.projectStatus, self.ui, [self.projectStatus2, out_dir])
+                    self.pg.start()
+                    #self.loadProject(pm.psObjectOut.url) #close this project and load the output project
+                    
         else:
             QtGui.QMessageBox.question(self.mainWindow, 'Warning!', "Please compute the dense reconstruction first",QtGui.QMessageBox.Ok)
 

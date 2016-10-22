@@ -22,17 +22,18 @@ def getImagesList(folderUrl):
 def modifyFileName(fileName):
     prefix, extension = fileName.split('.')
     prefix += ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(5))
-    return '.'.join(prefix, extension)
+    return '.'.join([prefix, extension])
 
 def copyImages(inputDir, outputDir, dont_copy = [], change_name_dict = {}):
     imagesList = getImagesList(inputDir)
     for fileName in imagesList:
+        fileUrl = os.path.join(inputDir, fileName)
         if fileName not in dont_copy:
             if fileName in change_name_dict.keys():
                 fileName = change_name_dict[fileName]
             outputFilePath = os.path.join(outputDir, fileName)
             if not os.path.exists(outputFilePath):
-                shutil.copyfile(os.path.join(inputDir, fileName), outputFilePath)
+                shutil.copyfile(fileUrl, outputFilePath)
                 print "Copied photo :", outputFilePath
 
 
@@ -139,3 +140,8 @@ def copyTree(src, dst, symlinks=False, ignore=None):
             shutil.copytree(s, d, symlinks, ignore)
         else:
             shutil.copy2(s, d)
+
+
+def log(txt_array):
+    for txt in txt_array:
+        print(txt)

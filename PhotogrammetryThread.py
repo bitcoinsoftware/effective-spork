@@ -5,6 +5,8 @@ import subprocess
 import os
 import shutil
 
+import ProjectMerge
+
 class PhotogrammetryThread(QtCore.QThread):
 
     incr_geo_matches_process = True
@@ -47,17 +49,21 @@ class PhotogrammetryThread(QtCore.QThread):
                 self.voiceReport(jsonStatus=None, new_photos=new_photos)
                 self.log(["Doing incremental append with option:", self.arg])
                 jsonStatus = self.incPG.getIncrementalAppend(new_photos, selected_photos_list, matchingOption = self.arg)
-                #if self.incr_geo_matches_process != None: # when the process workes it is equal to None, when it doesnt work it has a minus value
-                    #open a new window just when there is no window already
-                #try:
-                #    self.incr_geo_matches_process.terminate()
-                #except:
-                #    pass
-                #p = self.incr_geo_matches_process = subprocess.Popen(["xdot", self.projectStatus.incrGeoMatchesFile])
                 self.log(['displayIncrementedGraph'])
                 self.voiceReport(jsonStatus, new_photos) #inform via audio if  a single photo was matched
             else:
                 self.log(["There are no new photos, please add some."])
+        elif self.command == "merge":
+            self.log(["Merge"])
+            [projectStatus2, out_dir] = self.arg
+            pm = ProjectMerge.ProjectMerge(self.projectStatus, projectStatus2, out_dir, log=self.log)
+            result_url = pm.mergeProjects()
+            self.log(["Result url", result_url])
+            if support_functions.fileNotEmpty(result_url):
+
+                self.incPG.run_DataColor(["-i", result_url, "-o", pm.psObjectOut.openMVGSfMColorizedOutputFile])
+                self.log([" Display the file using meshlab "])
+                p = subprocess.Popen(["meshlab",  pm.psObjectOut.openMVGSfMColorizedOutputFile])
         elif self.command == 'find_weak_nodes':
             """ Find nodes with low number of matches """
             old_photos = self.projectStatus.getOldPhotos()
@@ -96,6 +102,7 @@ class PhotogrammetryThread(QtCore.QThread):
             if os.path.exists(self.incPG.projectStatusObject.geoMatchesFile) :
                 #p = subprocess.Popen(["xdot", newGraphUrl])
                 p = subprocess.Popen(["xdot", self.incPG.projectStatusObject.geoMatchesFile])
+
         elif self.command == "backup":
             support_functions.copyTree(self.projectStatus.matchesDir, self.projectStatus.matchesBackupDir)
             shutil.copy2(self.projectStatus.url, self.projectStatus.backupUrl)
